@@ -1,0 +1,5 @@
+integrations:
+  forge:
+    images.caecus.net:
+      server-id: 831251
+      site-id: 2505885
