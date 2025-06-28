@@ -37,8 +37,8 @@ class ImageController extends Controller
      */
     public function show()
     {
-//        $images = collect(Image::all());
-//        return view('image.show', compact('images'));
+        //        $images = collect(Image::all());
+        //        return view('image.show', compact('images'));
     }
 
     /**

@@ -98,9 +98,42 @@ php artisan pail        # Real-time logs
 - Vite handles asset bundling and HMR
 - Livewire Flux for enhanced UI components
 
+### Recent Improvements (PHP 8.2+ Refactoring)
+
+**Modern PHP Features Implemented:**
+- **Enums**: StorageDisk, AllowedImageType, UploadStatus with helper methods
+- **Match Expressions**: File size formatting, disk resolution, validation logic
+- **Union Types**: StorageDisk|string|Closure for flexible disk configuration
+- **Named Arguments**: Enhanced UploaderService fluent API
+- **Typed Properties**: Strict typing throughout models and services
+- **Custom Exceptions**: Specific upload exceptions with detailed error messages
+
+**Enhanced Security & Authorization:**
+- Complete ImagePolicy implementation with proper authorization
+- User-scoped image queries to prevent data leakage
+- File hash duplicate detection to prevent storage waste
+- Proper input validation and sanitization
+- Security-focused filename handling
+
+**Performance & Reliability:**
+- Database transactions for upload operations
+- Optimized database indexes for common queries
+- Automatic file cleanup on errors
+- EXIF metadata extraction for images
+- Computed properties for efficient data access
+
+**New Features Added:**
+- Search and filtering capabilities in image listing
+- Bulk operations (select all, delete multiple)
+- Image metadata extraction (dimensions, EXIF data)
+- File type filtering and statistics
+- Progress tracking for uploads
+- User-specific upload directories by date
+
 ### Important Notes
 - The application is designed for cloud storage; local storage is secondary
 - Multi-file uploads are handled with individual progress tracking
-- Error handling includes automatic cleanup of partial uploads
-- No image processing features currently implemented
-- API routes not implemented (web-only application)
+- Error handling includes automatic cleanup of partial uploads and database rollback
+- Images are automatically organized by user ID and upload date
+- Authorization policies ensure users can only access their own images
+- File duplicate detection prevents storage waste using SHA256 hashing
