@@ -62,36 +62,57 @@ $resetPassword = function () {
 ?>
 
 <div>
-    <form wire:submit="resetPassword">
+    <x-mary-form wire:submit="resetPassword">
+        <x-mary-header 
+            title="{{ __('Reset Password') }}" 
+            subtitle="{{ __('Please enter your new password below') }}" 
+            size="text-2xl" />
+        
         <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Email') }}" 
+            wire:model="email" 
+            type="email" 
+            icon="o-envelope" 
+            readonly
+            hint="{{ __('This field is pre-filled from your reset link') }}" />
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <x-text-input wire:model="password" id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('New Password') }}" 
+            wire:model="password" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Enter your new password') }}"
+            required 
+            autocomplete="new-password"
+            hint="{{ __('Must be at least 8 characters') }}" />
 
         <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+        <x-mary-input 
+            label="{{ __('Confirm New Password') }}" 
+            wire:model="password_confirmation" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Confirm your new password') }}"
+            required 
+            autocomplete="new-password"
+            hint="{{ __('Must match the password above') }}" />
 
-            <x-text-input wire:model="password_confirmation" id="password_confirmation" class="block mt-1 w-full"
-                          type="password"
-                          name="password_confirmation" required autocomplete="new-password" />
+        <!-- Actions -->
+        <x-slot:actions>
+            <x-mary-button 
+                label="{{ __('Back to login') }}" 
+                link="{{ route('login') }}"
+                class="btn-ghost" 
+                wire:navigate />
 
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Reset Password') }}
-            </x-primary-button>
-        </div>
-    </form>
+            <x-mary-button 
+                label="{{ __('Reset Password') }}" 
+                type="submit" 
+                icon="o-key" 
+                class="btn-primary" 
+                spinner="resetPassword" />
+        </x-slot:actions>
+    </x-mary-form>
 </div>

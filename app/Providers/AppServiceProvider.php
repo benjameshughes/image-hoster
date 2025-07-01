@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\UploaderService;
+use App\Services\ImageProcessingService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,6 +16,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind('upload', function ($app) {
             return $app->make(UploaderService::class);
         });
+        
+        $this->app->singleton(ImageProcessingService::class);
     }
 
     /**

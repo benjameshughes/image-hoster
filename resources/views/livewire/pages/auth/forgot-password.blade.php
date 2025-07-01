@@ -37,25 +37,44 @@ $sendPasswordResetLink = function () {
 ?>
 
 <div>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
-    </div>
-
     <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    @if(session('status'))
+        <x-mary-alert class="mb-4" icon="o-check-circle" success dismissible>
+            {{ session('status') }}
+        </x-mary-alert>
+    @endif
 
-    <form wire:submit="sendPasswordResetLink">
+    <x-mary-form wire:submit="sendPasswordResetLink">
+        <x-mary-header 
+            title="{{ __('Forgot Password?') }}" 
+            subtitle="{{ __('No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}" 
+            size="text-2xl" />
+        
         <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Email') }}" 
+            wire:model="email" 
+            type="email" 
+            icon="o-envelope" 
+            placeholder="{{ __('Enter your email address') }}"
+            required 
+            autofocus
+            hint="{{ __('Enter the email address associated with your account') }}" />
 
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Email Password Reset Link') }}
-            </x-primary-button>
-        </div>
-    </form>
+        <!-- Actions -->
+        <x-slot:actions>
+            <x-mary-button 
+                label="{{ __('Back to login') }}" 
+                link="{{ route('login') }}"
+                class="btn-ghost" 
+                wire:navigate />
+
+            <x-mary-button 
+                label="{{ __('Send Reset Link') }}" 
+                type="submit" 
+                icon="o-paper-airplane" 
+                class="btn-primary" 
+                spinner="sendPasswordResetLink" />
+        </x-slot:actions>
+    </x-mary-form>
 </div>

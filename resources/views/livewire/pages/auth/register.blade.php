@@ -40,52 +40,68 @@ $register = function () {
 ?>
 
 <div>
-    <form wire:submit="register">
+    <x-mary-form wire:submit="register">
+        <x-mary-header title="{{ __('Create your account') }}" subtitle="{{ __('Join us today! Please fill in your details.') }}" size="text-2xl" />
+        
         <!-- Name -->
-        <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" name="name" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Full Name') }}" 
+            wire:model="name" 
+            type="text" 
+            icon="o-user" 
+            placeholder="{{ __('Enter your full name') }}"
+            required 
+            autofocus 
+            autocomplete="name"
+            hint="{{ __('Your display name on the platform') }}" />
 
         <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Email') }}" 
+            wire:model="email" 
+            type="email" 
+            icon="o-envelope" 
+            placeholder="{{ __('Enter your email address') }}"
+            required 
+            autocomplete="username"
+            hint="{{ __('We\'ll use this to send you important notifications') }}" />
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Password') }}" 
+            wire:model="password" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Create a strong password') }}"
+            required 
+            autocomplete="new-password"
+            hint="{{ __('Must be at least 8 characters') }}" />
 
         <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+        <x-mary-input 
+            label="{{ __('Confirm Password') }}" 
+            wire:model="password_confirmation" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Confirm your password') }}"
+            required 
+            autocomplete="new-password"
+            hint="{{ __('Must match the password above') }}" />
 
-            <x-text-input wire:model="password_confirmation" id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
+        <!-- Actions -->
+        <x-slot:actions>
+            <x-mary-button 
+                label="{{ __('Already registered?') }}" 
+                link="{{ route('login') }}"
+                class="btn-ghost" 
+                wire:navigate />
 
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}" wire:navigate>
-                {{ __('Already registered?') }}
-            </a>
-
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
-            </x-primary-button>
-        </div>
-    </form>
+            <x-mary-button 
+                label="{{ __('Create Account') }}" 
+                type="submit" 
+                icon="o-user-plus" 
+                class="btn-primary" 
+                spinner="register" />
+        </x-slot:actions>
+    </x-mary-form>
 </div>

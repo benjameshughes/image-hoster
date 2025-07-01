@@ -33,29 +33,32 @@ $confirmPassword = function () {
 ?>
 
 <div>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}
-    </div>
-
-    <form wire:submit="confirmPassword">
+    <x-mary-form wire:submit="confirmPassword">
+        <x-mary-header 
+            title="{{ __('Confirm Password') }}" 
+            subtitle="{{ __('This is a secure area of the application. Please confirm your password before continuing.') }}" 
+            size="text-2xl" />
+        
         <!-- Password -->
-        <div>
-            <x-input-label for="password" :value="__('Password')" />
+        <x-mary-input 
+            label="{{ __('Password') }}" 
+            wire:model="password" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Enter your current password') }}"
+            required 
+            autofocus
+            autocomplete="current-password"
+            hint="{{ __('Enter your password to confirm your identity') }}" />
 
-            <x-text-input wire:model="password"
-                          id="password"
-                          class="block mt-1 w-full"
-                          type="password"
-                          name="password"
-                          required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
-
-        <div class="flex justify-end mt-4">
-            <x-primary-button>
-                {{ __('Confirm') }}
-            </x-primary-button>
-        </div>
-    </form>
+        <!-- Actions -->
+        <x-slot:actions>
+            <x-mary-button 
+                label="{{ __('Confirm') }}" 
+                type="submit" 
+                icon="o-shield-check" 
+                class="btn-primary" 
+                spinner="confirmPassword" />
+        </x-slot:actions>
+    </x-mary-form>
 </div>

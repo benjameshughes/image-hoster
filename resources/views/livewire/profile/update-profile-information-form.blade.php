@@ -48,54 +48,67 @@ $sendVerification = function () {
 
 ?>
 
-<section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Profile Information') }}
-        </h2>
+<x-mary-card>
+    <x-mary-header 
+        title="{{ __('Profile Information') }}" 
+        subtitle="{{ __(\"Update your account's profile information and email address.\") }}" />
 
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __("Update your account's profile information and email address.") }}
-        </p>
-    </header>
+    <x-mary-form wire:submit="updateProfileInformation">
+        <x-mary-input 
+            label="{{ __('Name') }}" 
+            wire:model="name" 
+            icon="o-user" 
+            placeholder="{{ __('Enter your full name') }}"
+            required 
+            autofocus 
+            autocomplete="name" />
 
-    <form wire:submit="updateProfileInformation" class="mt-6 space-y-6">
-        <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input wire:model="name" id="name" name="name" type="text" class="mt-1 block w-full" required autofocus autocomplete="name" />
-            <x-input-error class="mt-2" :messages="$errors->get('name')" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Email') }}" 
+            wire:model="email" 
+            type="email" 
+            icon="o-envelope" 
+            placeholder="{{ __('Enter your email address') }}"
+            required 
+            autocomplete="username" />
 
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" name="email" type="email" class="mt-1 block w-full" required autocomplete="username" />
-            <x-input-error class="mt-2" :messages="$errors->get('email')" />
-
-            @if (auth()->user() instanceof MustVerifyEmail && ! auth()->user()->hasVerifiedEmail())
-                <div>
-                    <p class="text-sm mt-2 text-gray-800">
-                        {{ __('Your email address is unverified.') }}
-
-                        <button wire:click.prevent="sendVerification" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            {{ __('Click here to re-send the verification email.') }}
-                        </button>
-                    </p>
-
-                    @if (session('status') === 'verification-link-sent')
-                        <p class="mt-2 font-medium text-sm text-green-600">
-                            {{ __('A new verification link has been sent to your email address.') }}
-                        </p>
-                    @endif
+        @if (auth()->user() instanceof MustVerifyEmail && ! auth()->user()->hasVerifiedEmail())
+            <x-mary-alert class="mt-4" icon="o-exclamation-triangle" warning>
+                <div class="flex flex-col gap-2">
+                    <span>{{ __('Your email address is unverified.') }}</span>
+                    
+                    <x-mary-button 
+                        wire:click.prevent="sendVerification" 
+                        label="{{ __('Click here to re-send the verification email.') }}"
+                        class="btn-link btn-sm p-0 h-auto justify-start"
+                        spinner="sendVerification" />
                 </div>
+            </x-mary-alert>
+
+            @if (session('status') === 'verification-link-sent')
+                <x-mary-alert class="mt-2" icon="o-check-circle" success dismissible>
+                    {{ __('A new verification link has been sent to your email address.') }}
+                </x-mary-alert>
             @endif
-        </div>
+        @endif
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
+        <x-slot:actions>
+            <div class="flex items-center gap-4">
+                <x-mary-button 
+                    label="{{ __('Save') }}" 
+                    type="submit" 
+                    icon="o-check" 
+                    class="btn-primary" 
+                    spinner="updateProfileInformation" />
 
-            <x-action-message class="me-3" on="profile-updated">
-                {{ __('Saved.') }}
-            </x-action-message>
-        </div>
-    </form>
-</section>
+                <div x-data="{ show: false }" 
+                     x-on:profile-updated.window="show = true; setTimeout(() => show = false, 3000)" 
+                     x-show="show" 
+                     x-transition 
+                     class="text-sm text-green-600 font-medium">
+                    {{ __('Saved.') }}
+                </div>
+            </div>
+        </x-slot:actions>
+    </x-mary-form>
+</x-mary-card>

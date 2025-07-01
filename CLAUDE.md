@@ -48,6 +48,9 @@ php artisan view:clear
 # Debug and monitor
 php artisan tinker      # Interactive REPL
 php artisan pail        # Real-time logs
+
+# Regenerate autoload (if adding helpers or new classes)
+composer dump-autoload
 ```
 
 ## Architecture Overview
@@ -129,6 +132,11 @@ php artisan pail        # Real-time logs
 - File type filtering and statistics
 - Progress tracking for uploads
 - User-specific upload directories by date
+
+### Helper Functions
+- **gravatar($email, $size = 80, $default = 'mp', $rating = 'g')**: Generates Gravatar URLs for user avatars
+  - Located in `app/helpers.php` and auto-loaded via composer.json
+  - Used in navigation components for user profile pictures
 
 ### Important Notes
 - The application is designed for cloud storage; local storage is secondary

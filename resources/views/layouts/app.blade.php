@@ -15,32 +15,54 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased">
-<div class="min-h-screen bg-gray-100 dark:bg-zinc-800">
-    <livewire:layout.navigation/>
-
-    <!-- Page Heading -->
-    @if (isset($header))
-        <header class="bg-white dark:bg-zinc-900 shadow">
-            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <h2 class="font-semibold text-xl text-gray-800 dark:text-white/80 leading-tight">
-                    {{ $header }}
-                </h2>
+    <div class="drawer lg:drawer-open">
+        {{-- Mobile drawer toggle --}}
+        <input id="main-drawer" type="checkbox" class="drawer-toggle" />
+        
+        {{-- Page content --}}
+        <div class="drawer-content flex flex-col">
+            {{-- Mobile nav bar --}}
+            <div class="navbar bg-base-300 lg:hidden">
+                <div class="flex-none">
+                    <label for="main-drawer" class="btn btn-square btn-ghost">
+                        <x-mary-icon name="o-bars-3" class="w-6 h-6" />
+                    </label>
+                </div>
+                <div class="flex-1">
+                    <a href="{{ route('dashboard') }}" class="btn btn-ghost text-xl" wire:navigate>
+                        {{ config('app.name') }}
+                    </a>
+                </div>
+                <div class="flex-none">
+                    <x-mary-theme-toggle class="btn btn-sm btn-circle" />
+                </div>
             </div>
-        </header>
-    @endif
+            
+            {{-- Main content --}}
+            <main class="flex-1 p-6">
+                <!-- Page Heading -->
+                @if (isset($header))
+                    <header class="bg-white dark:bg-zinc-900 shadow mb-6 -m-6 mb-6 p-6">
+                        <h2 class="font-semibold text-xl text-gray-800 dark:text-white/80 leading-tight">
+                            {{ $header }}
+                        </h2>
+                    </header>
+                @endif
 
-    <!-- Page Content -->
-    <main>
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-{{--                <div class="bg-white dark:bg-zinc-900 overflow-hidden shadow-sm sm:rounded-lg">--}}
-                    <div class="text-gray-900 dark:text-white">
-                        {{ $slot }}
-                    </div>
-{{--                </div>--}}
-            </div>
+                <!-- Page Content -->
+                {{ $slot }}
+            </main>
         </div>
-    </main>
-</div>
+        
+        {{-- Sidebar --}}
+        <div class="drawer-side">
+            <label for="main-drawer" class="drawer-overlay"></label>
+            <aside class="min-h-full w-64 bg-base-200 flex flex-col">
+                <div class="p-4 flex-1">
+                    <livewire:layout.navigation/>
+                </div>
+            </aside>
+        </div>
+    </div>
 </body>
 </html>

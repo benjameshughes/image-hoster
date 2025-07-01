@@ -56,6 +56,12 @@ class UploaderService
 
     private bool $extractMetadata = true;
 
+    private bool $processImages = true;
+
+    private bool $generateThumbnails = true;
+
+    private bool $compressImages = true;
+
     private ?int $userId = null;
 
     /**
@@ -281,6 +287,36 @@ class UploaderService
     }
 
     /**
+     * Enable/disable image processing (thumbnails and compression)
+     */
+    public function processImages(bool $process = true): static
+    {
+        $this->processImages = $process;
+
+        return $this;
+    }
+
+    /**
+     * Enable/disable thumbnail generation
+     */
+    public function generateThumbnails(bool $generate = true): static
+    {
+        $this->generateThumbnails = $generate;
+
+        return $this;
+    }
+
+    /**
+     * Enable/disable image compression
+     */
+    public function compressImages(bool $compress = true): static
+    {
+        $this->compressImages = $compress;
+
+        return $this;
+    }
+
+    /**
      * Set user ID for the upload
      */
     public function setUserId(?int $userId): static
@@ -350,6 +386,11 @@ class UploaderService
                 // Store in the database if needed
                 if ($this->storeInDatabase) {
                     $result['record'] = $this->createDatabaseRecord($result);
+                    
+                    // Process image after database record is created
+                    if ($this->processImages && $this->isImageFile($result['mime_type'])) {
+                        $this->processImageAsync($result['record']);
+                    }
                 }
 
                 // Run after upload callback if set
@@ -466,6 +507,7 @@ class UploaderService
             'path' => $result['path'],
             'original_name' => $result['original_name'],
             'mime_type' => $result['mime_type'],
+            'image_type' => AllowedImageType::fromMimeType($result['mime_type']),
             'size' => $result['size'],
             'disk' => $result['disk'],
             'is_public' => $this->public,
@@ -619,5 +661,31 @@ class UploaderService
             $bytes >= 1024 => round($bytes / 1024, 2).' KB',
             default => $bytes.' B',
         };
+    }
+
+    /**
+     * Check if file is an image
+     */
+    private function isImageFile(string $mimeType): bool
+    {
+        return str_starts_with($mimeType, 'image/');
+    }
+
+    /**
+     * Process image asynchronously (in a real app, this would be dispatched to a queue)
+     */
+    private function processImageAsync(Image $image): void
+    {
+        try {
+            // For now, process synchronously
+            // In a production app, you'd dispatch this to a queue
+            $processingService = app(ImageProcessingService::class);
+            $processingService->processImage($image);
+        } catch (\Exception $e) {
+            \Log::error('Image processing failed during upload', [
+                'image_id' => $image->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

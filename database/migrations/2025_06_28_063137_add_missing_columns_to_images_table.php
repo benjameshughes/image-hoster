@@ -20,11 +20,7 @@ return new class extends Migration
             // Add index for file hash to prevent duplicates
             $table->index('file_hash');
 
-            // Add index for user_id if it doesn't exist
-            $table->index('user_id');
-
-            // Add index for common queries
-            $table->index(['user_id', 'created_at']);
+            // Add index for mime_type
             $table->index('mime_type');
         });
     }
@@ -36,8 +32,6 @@ return new class extends Migration
     {
         Schema::table('images', function (Blueprint $table) {
             $table->dropIndex(['file_hash']);
-            $table->dropIndex(['user_id']);
-            $table->dropIndex(['user_id', 'created_at']);
             $table->dropIndex(['mime_type']);
 
             $table->dropColumn(['width', 'height', 'file_hash', 'metadata']);

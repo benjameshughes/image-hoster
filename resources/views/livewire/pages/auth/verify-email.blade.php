@@ -29,23 +29,31 @@ $logout = function (Logout $logout) {
 ?>
 
 <div>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
-    </div>
+    <x-mary-header 
+        title="{{ __('Verify Your Email') }}" 
+        subtitle="{{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you?') }}" 
+        size="text-2xl" />
 
     @if (session('status') == 'verification-link-sent')
-        <div class="mb-4 font-medium text-sm text-green-600">
+        <x-mary-alert class="mb-4" icon="o-check-circle" success dismissible>
             {{ __('A new verification link has been sent to the email address you provided during registration.') }}
-        </div>
+        </x-mary-alert>
     @endif
 
-    <div class="mt-4 flex items-center justify-between">
-        <x-primary-button wire:click="sendVerification">
-            {{ __('Resend Verification Email') }}
-        </x-primary-button>
+    <x-mary-card>
+        <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <x-mary-button 
+                wire:click="sendVerification"
+                label="{{ __('Resend Verification Email') }}"
+                icon="o-envelope"
+                class="btn-primary"
+                spinner="sendVerification" />
 
-        <button wire:click="logout" type="submit" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            {{ __('Log Out') }}
-        </button>
-    </div>
+            <x-mary-button 
+                wire:click="logout"
+                label="{{ __('Log Out') }}"
+                icon="o-arrow-left-on-rectangle"
+                class="btn-ghost" />
+        </div>
+    </x-mary-card>
 </div>

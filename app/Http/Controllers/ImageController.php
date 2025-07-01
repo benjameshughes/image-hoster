@@ -42,6 +42,39 @@ class ImageController extends Controller
     }
 
     /**
+     * Show detailed view of the specified image.
+     */
+    public function view(Image $image)
+    {
+        // Ensure user can only view their own images
+        if ($image->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        return view('images.view', compact('image'));
+    }
+
+    /**
+     * Download the specified image.
+     */
+    public function download(Image $image)
+    {
+        // Ensure user can only download their own images
+        if ($image->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if (!$image->exists()) {
+            abort(404, 'Image file not found');
+        }
+
+        return \Storage::disk($image->disk->value)->download(
+            $image->path,
+            $image->original_name ?? $image->name
+        );
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(Image $image)

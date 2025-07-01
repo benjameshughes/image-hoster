@@ -24,46 +24,59 @@ $login = function () {
 
 <div>
     <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    @if(session('status'))
+        <x-mary-alert class="mb-4" icon="o-check-circle" success dismissible>
+            {{ session('status') }}
+        </x-mary-alert>
+    @endif
 
-    <form wire:submit="login">
+    <x-mary-form wire:submit="login">
+        <x-mary-header title="{{ __('Sign in to your account') }}" subtitle="{{ __('Welcome back! Please enter your details.') }}" size="text-2xl" />
+        
         <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="form.email" id="email" class="block mt-1 w-full" type="email" name="email" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('form.email')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Email') }}" 
+            wire:model="form.email" 
+            type="email" 
+            icon="o-envelope" 
+            placeholder="{{ __('Enter your email') }}"
+            required 
+            autofocus 
+            autocomplete="username"
+            hint="{{ __('We\'ll never share your email with anyone else.') }}" />
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="form.password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('form.password')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Password') }}" 
+            wire:model="form.password" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Enter your password') }}"
+            required 
+            autocomplete="current-password" />
 
         <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember" class="inline-flex items-center">
-                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
-            </label>
-        </div>
+        <x-mary-checkbox 
+            label="{{ __('Remember me') }}" 
+            wire:model="form.remember" 
+            hint="{{ __('Keep me signed in on this device') }}" />
 
-        <div class="flex items-center justify-end mt-4">
+        <!-- Actions -->
+        <x-slot:actions>
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}" wire:navigate>
-                    {{ __('Forgot your password?') }}
-                </a>
+                <x-mary-button 
+                    label="{{ __('Forgot password?') }}" 
+                    link="{{ route('password.request') }}"
+                    class="btn-ghost" 
+                    wire:navigate />
             @endif
 
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
-        </div>
-    </form>
+            <x-mary-button 
+                label="{{ __('Sign in') }}" 
+                type="submit" 
+                icon="o-paper-airplane" 
+                class="btn-primary" 
+                spinner="login" />
+        </x-slot:actions>
+    </x-mary-form>
 </div>

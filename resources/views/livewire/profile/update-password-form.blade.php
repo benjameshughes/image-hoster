@@ -39,42 +39,56 @@ $updatePassword = function () {
 
 ?>
 
-<section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Update Password') }}
-        </h2>
+<x-mary-card>
+    <x-mary-header 
+        title="{{ __('Update Password') }}" 
+        subtitle="{{ __('Ensure your account is using a long, random password to stay secure.') }}" />
 
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __('Ensure your account is using a long, random password to stay secure.') }}
-        </p>
-    </header>
+    <x-mary-form wire:submit="updatePassword">
+        <x-mary-input 
+            label="{{ __('Current Password') }}" 
+            wire:model="current_password" 
+            type="password" 
+            icon="o-lock-closed" 
+            placeholder="{{ __('Enter your current password') }}"
+            autocomplete="current-password" 
+            hint="{{ __('Enter your current password to confirm changes') }}" />
 
-    <form wire:submit="updatePassword" class="mt-6 space-y-6">
-        <div>
-            <x-input-label for="update_password_current_password" :value="__('Current Password')" />
-            <x-text-input wire:model="current_password" id="update_password_current_password" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
-            <x-input-error :messages="$errors->get('current_password')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('New Password') }}" 
+            wire:model="password" 
+            type="password" 
+            icon="o-key" 
+            placeholder="{{ __('Enter a new secure password') }}"
+            autocomplete="new-password" 
+            hint="{{ __('Choose a strong password with at least 8 characters') }}" />
 
-        <div>
-            <x-input-label for="update_password_password" :value="__('New Password')" />
-            <x-text-input wire:model="password" id="update_password_password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+        <x-mary-input 
+            label="{{ __('Confirm Password') }}" 
+            wire:model="password_confirmation" 
+            type="password" 
+            icon="o-shield-check" 
+            placeholder="{{ __('Confirm your new password') }}"
+            autocomplete="new-password" 
+            hint="{{ __('Re-enter your new password to confirm') }}" />
 
-        <div>
-            <x-input-label for="update_password_password_confirmation" :value="__('Confirm Password')" />
-            <x-text-input wire:model="password_confirmation" id="update_password_password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
+        <x-slot:actions>
+            <div class="flex items-center gap-4">
+                <x-mary-button 
+                    label="{{ __('Save') }}" 
+                    type="submit" 
+                    icon="o-check" 
+                    class="btn-primary" 
+                    spinner="updatePassword" />
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
-
-            <x-action-message class="me-3" on="password-updated">
-                {{ __('Saved.') }}
-            </x-action-message>
-        </div>
-    </form>
-</section>
+                <div x-data="{ show: false }" 
+                     x-on:password-updated.window="show = true; setTimeout(() => show = false, 3000)" 
+                     x-show="show" 
+                     x-transition 
+                     class="text-sm text-green-600 font-medium">
+                    {{ __('Saved.') }}
+                </div>
+            </div>
+        </x-slot:actions>
+    </x-mary-form>
+</x-mary-card>
