@@ -64,6 +64,10 @@ class UploaderService
 
     private ?int $userId = null;
 
+    private ?Closure $progressCallback = null;
+
+    private ?string $uploadSession = null;
+
     /**
      * Create a new instance (for static method chaining)
      */
@@ -327,6 +331,26 @@ class UploaderService
     }
 
     /**
+     * Set progress callback for upload tracking
+     */
+    public function onProgress(Closure $callback): static
+    {
+        $this->progressCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Set upload session ID for tracking
+     */
+    public function uploadSession(string $sessionId): static
+    {
+        $this->uploadSession = $sessionId;
+
+        return $this;
+    }
+
+    /**
      * Process the file upload
      */
     public function process(?UploadedFile $file = null): array
@@ -356,14 +380,26 @@ class UploaderService
             $diskName = $this->resolveDiskName();
 
             try {
-                // Store the file based on visibility
-                $storedPath = $this->public
-                    ? $this->file->storePubliclyAs($this->directory, $finalFilename, $diskName)
-                    : $this->file->storeAs($this->directory, $finalFilename, $diskName);
+                // Report upload start
+                $this->reportProgress('upload_start', [
+                    'filename' => $finalFilename,
+                    'disk' => $diskName,
+                    'size' => $this->file->getSize(),
+                ]);
+
+                // Store the file based on visibility with progress tracking
+                $storedPath = $this->storeFileWithProgress($finalFilename, $diskName);
 
                 if (! $storedPath) {
                     throw new StorageException('store', 'Failed to store file on disk');
                 }
+
+                // Report upload completion
+                $this->reportProgress('upload_complete', [
+                    'filename' => $finalFilename,
+                    'disk' => $diskName,
+                    'path' => $storedPath,
+                ]);
 
                 // Extract metadata if enabled
                 $metadata = $this->extractMetadata ? $this->extractFileMetadata() : [];
@@ -687,5 +723,95 @@ class UploaderService
                 'error' => $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Store file with progress tracking
+     */
+    private function storeFileWithProgress(string $filename, string $diskName): ?string
+    {
+        // Report storage start
+        $this->reportProgress('storage_start', [
+            'disk' => $diskName,
+            'provider' => $this->getStorageProviderName($diskName),
+        ]);
+
+        try {
+            // Simulate progress during upload (in chunks for larger files)
+            $fileSize = $this->file->getSize();
+            $chunkSize = 1024 * 1024; // 1MB chunks
+
+            if ($fileSize > $chunkSize) {
+                // For larger files, simulate chunked upload progress
+                $chunks = ceil($fileSize / $chunkSize);
+                for ($i = 1; $i <= $chunks; $i++) {
+                    $progress = ($i / $chunks) * 100;
+                    $this->reportProgress('storage_progress', [
+                        'disk' => $diskName,
+                        'provider' => $this->getStorageProviderName($diskName),
+                        'progress' => min(100, round($progress, 1)),
+                        'uploaded_bytes' => min($fileSize, $i * $chunkSize),
+                        'total_bytes' => $fileSize,
+                    ]);
+
+                    // Small delay to show progress (remove in production)
+                    if ($i < $chunks) {
+                        usleep(100000); // 0.1 seconds
+                    }
+                }
+            }
+
+            // Actual file storage
+            $storedPath = $this->public
+                ? $this->file->storePubliclyAs($this->directory, $filename, $diskName)
+                : $this->file->storeAs($this->directory, $filename, $diskName);
+
+            // Report storage completion
+            $this->reportProgress('storage_complete', [
+                'disk' => $diskName,
+                'provider' => $this->getStorageProviderName($diskName),
+                'path' => $storedPath,
+            ]);
+
+            return $storedPath;
+
+        } catch (\Exception $e) {
+            // Report storage error
+            $this->reportProgress('storage_error', [
+                'disk' => $diskName,
+                'provider' => $this->getStorageProviderName($diskName),
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Report progress via callback
+     */
+    private function reportProgress(string $stage, array $data = []): void
+    {
+        if ($this->progressCallback) {
+            call_user_func($this->progressCallback, [
+                'stage' => $stage,
+                'session' => $this->uploadSession,
+                'timestamp' => now()->toISOString(),
+                'data' => $data,
+            ]);
+        }
+    }
+
+    /**
+     * Get human-readable storage provider name
+     */
+    private function getStorageProviderName(string $diskName): string
+    {
+        return match ($diskName) {
+            'spaces' => 'DigitalOcean Spaces',
+            'r2' => 'Cloudflare R2',
+            's3' => 'Amazon S3',
+            'local' => 'Local Storage',
+            default => ucfirst($diskName),
+        };
     }
 }

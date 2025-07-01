@@ -9,6 +9,7 @@ use App\Models\Image;
 use App\Services\UploaderService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Rule;
 use Livewire\Component;
@@ -40,12 +41,18 @@ class Uploader extends Component
 
     public array $allowedTypes = [];
 
+    public array $uploadProgress = [];
+
+    public string $uploadSessionId = '';
+
     public function mount(): void
     {
         $this->allowedTypes = array_map(
             fn (AllowedImageType $type) => $type->value,
             AllowedImageType::cases()
         );
+
+        $this->uploadSessionId = Str::random(16);
     }
 
     public function updatedFiles(): void
@@ -70,12 +77,29 @@ class Uploader extends Component
 
         foreach ($this->files as $index => $file) {
             try {
-                // Update progress
+                // Initialize progress for this file
+                $fileId = 'file_' . $index;
+                $this->uploadProgress[$fileId] = [
+                    'filename' => $file->getClientOriginalName(),
+                    'disk' => $this->disk->value,
+                    'provider' => $this->getStorageProviderName($this->disk->value),
+                    'stage' => 'preparing',
+                    'progress' => 0,
+                    'size' => $this->formatFileSize($file->getSize()),
+                ];
+
+                // Update general progress
                 $this->dispatch('upload-progress', [
                     'current' => $processedFiles + 1,
                     'total' => $totalFiles,
                     'filename' => $file->getClientOriginalName(),
                     'size' => $this->formatFileSize($file->getSize()),
+                ]);
+
+                // Update storage-specific progress
+                $this->dispatch('storage-progress-update', [
+                    'fileId' => $fileId,
+                    'progress' => $this->uploadProgress,
                 ]);
 
                 $uploader = UploaderService::forUser($userId)
@@ -86,7 +110,11 @@ class Uploader extends Component
                     ->maxSizeMB($this->maxFileSizeMB)
                     ->allowedImageTypes(...AllowedImageType::cases())
                     ->extractMetadata($this->extractMetadata)
-                    ->checkDuplicates($this->checkDuplicates);
+                    ->checkDuplicates($this->checkDuplicates)
+                    ->uploadSession($this->uploadSessionId)
+                    ->onProgress(function ($progressData) use ($fileId) {
+                        $this->updateFileProgress($fileId, $progressData);
+                    });
 
                 $result = $uploader->process($file);
 
@@ -234,6 +262,7 @@ class Uploader extends Component
 
         $this->uploadedFiles = [];
         $this->files = [];
+        $this->clearProgress();
 
         $this->dispatch('files-cleared', [
             'deleted' => $deletedCount,
@@ -298,5 +327,81 @@ class Uploader extends Component
     public function toggleMetadataExtraction(): void
     {
         $this->extractMetadata = ! $this->extractMetadata;
+    }
+
+    /**
+     * Update file upload progress
+     */
+    private function updateFileProgress(string $fileId, array $progressData): void
+    {
+        if (!isset($this->uploadProgress[$fileId])) {
+            return;
+        }
+
+        $stage = $progressData['stage'];
+        $data = $progressData['data'] ?? [];
+
+        switch ($stage) {
+            case 'upload_start':
+                $this->uploadProgress[$fileId]['stage'] = 'uploading';
+                $this->uploadProgress[$fileId]['progress'] = 0;
+                break;
+
+            case 'storage_start':
+                $this->uploadProgress[$fileId]['stage'] = 'storing';
+                $this->uploadProgress[$fileId]['provider'] = $data['provider'] ?? '';
+                break;
+
+            case 'storage_progress':
+                $this->uploadProgress[$fileId]['stage'] = 'storing';
+                $this->uploadProgress[$fileId]['progress'] = $data['progress'] ?? 0;
+                $this->uploadProgress[$fileId]['uploaded_bytes'] = $data['uploaded_bytes'] ?? 0;
+                $this->uploadProgress[$fileId]['total_bytes'] = $data['total_bytes'] ?? 0;
+                break;
+
+            case 'storage_complete':
+                $this->uploadProgress[$fileId]['stage'] = 'processing';
+                $this->uploadProgress[$fileId]['progress'] = 100;
+                break;
+
+            case 'upload_complete':
+                $this->uploadProgress[$fileId]['stage'] = 'complete';
+                $this->uploadProgress[$fileId]['progress'] = 100;
+                break;
+
+            case 'storage_error':
+                $this->uploadProgress[$fileId]['stage'] = 'error';
+                $this->uploadProgress[$fileId]['error'] = $data['error'] ?? 'Unknown error';
+                break;
+        }
+
+        // Dispatch updated progress to frontend
+        $this->dispatch('storage-progress-update', [
+            'fileId' => $fileId,
+            'progress' => $this->uploadProgress,
+        ]);
+    }
+
+    /**
+     * Get storage provider display name
+     */
+    private function getStorageProviderName(string $diskName): string
+    {
+        return match ($diskName) {
+            'spaces' => 'DigitalOcean Spaces',
+            'r2' => 'Cloudflare R2',
+            's3' => 'Amazon S3',
+            'local' => 'Local Storage',
+            default => ucfirst($diskName),
+        };
+    }
+
+    /**
+     * Clear upload progress
+     */
+    public function clearProgress(): void
+    {
+        $this->uploadProgress = [];
+        $this->uploadSessionId = Str::random(16);
     }
 }
