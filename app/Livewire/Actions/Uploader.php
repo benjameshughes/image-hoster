@@ -41,9 +41,9 @@ class Uploader extends Component
 
     public array $allowedTypes = [];
 
-    public array $uploadProgress = [];
+    public bool $isUploading = false;
 
-    public string $uploadSessionId = '';
+    public array $processingFiles = [];
 
     public function mount(): void
     {
@@ -51,8 +51,6 @@ class Uploader extends Component
             fn (AllowedImageType $type) => $type->value,
             AllowedImageType::cases()
         );
-
-        $this->uploadSessionId = Str::random(16);
     }
 
     public function updatedFiles(): void
@@ -62,45 +60,30 @@ class Uploader extends Component
     }
 
     /**
-     * Process and save uploaded files with progress tracking
+     * Process and save uploaded files with beautiful UI states
      */
     public function save(): void
     {
+        $this->isUploading = true;
         $uploadedFiles = collect($this->uploadedFiles ?? []);
         $totalFiles = count($this->files);
-        $processedFiles = 0;
         $errors = [];
         $userId = Auth::id();
 
-        // Dispatch start event
-        $this->dispatch('upload-started', ['total' => $totalFiles]);
+        // Build processing files list
+        $this->processingFiles = [];
+        foreach ($this->files as $index => $file) {
+            $this->processingFiles[] = [
+                'name' => $file->getClientOriginalName(),
+                'size' => $this->formatFileSize($file->getSize()),
+                'status' => 'uploading'
+            ];
+        }
 
         foreach ($this->files as $index => $file) {
             try {
-                // Initialize progress for this file
-                $fileId = 'file_' . $index;
-                $this->uploadProgress[$fileId] = [
-                    'filename' => $file->getClientOriginalName(),
-                    'disk' => $this->disk->value,
-                    'provider' => $this->getStorageProviderName($this->disk->value),
-                    'stage' => 'preparing',
-                    'progress' => 0,
-                    'size' => $this->formatFileSize($file->getSize()),
-                ];
-
-                // Update general progress
-                $this->dispatch('upload-progress', [
-                    'current' => $processedFiles + 1,
-                    'total' => $totalFiles,
-                    'filename' => $file->getClientOriginalName(),
-                    'size' => $this->formatFileSize($file->getSize()),
-                ]);
-
-                // Update storage-specific progress
-                $this->dispatch('storage-progress-update', [
-                    'fileId' => $fileId,
-                    'progress' => $this->uploadProgress,
-                ]);
+                // Update to processing status
+                $this->processingFiles[$index]['status'] = 'processing';
 
                 $uploader = UploaderService::forUser($userId)
                     ->disk($this->disk)
@@ -110,13 +93,12 @@ class Uploader extends Component
                     ->maxSizeMB($this->maxFileSizeMB)
                     ->allowedImageTypes(...AllowedImageType::cases())
                     ->extractMetadata($this->extractMetadata)
-                    ->checkDuplicates($this->checkDuplicates)
-                    ->uploadSession($this->uploadSessionId)
-                    ->onProgress(function ($progressData) use ($fileId) {
-                        $this->updateFileProgress($fileId, $progressData);
-                    });
+                    ->checkDuplicates($this->checkDuplicates);
 
                 $result = $uploader->process($file);
+
+                // Mark as complete
+                $this->processingFiles[$index]['status'] = 'complete';
 
                 $uploadedFiles->push([
                     'id' => $result['record']->id ?? null,
@@ -132,15 +114,17 @@ class Uploader extends Component
                     'uploaded_at' => now()->toISOString(),
                 ]);
 
-                $processedFiles++;
-
             } catch (UploadException $e) {
+                $this->processingFiles[$index]['status'] = 'error';
+                $this->processingFiles[$index]['error'] = $e->getMessage();
                 $errors[] = [
                     'filename' => $file->getClientOriginalName(),
                     'error' => $e->getMessage(),
                     'type' => 'upload_error',
                 ];
             } catch (\Exception $e) {
+                $this->processingFiles[$index]['status'] = 'error';
+                $this->processingFiles[$index]['error'] = 'Upload failed';
                 $errors[] = [
                     'filename' => $file->getClientOriginalName(),
                     'error' => 'Unexpected error: '.$e->getMessage(),
@@ -157,14 +141,11 @@ class Uploader extends Component
 
         $this->uploadedFiles = $uploadedFiles->toArray();
         $this->files = [];
-
-        // Dispatch completion event
-        $this->dispatch('upload-completed', [
-            'successful' => $processedFiles,
-            'failed' => count($errors),
-            'errors' => $errors,
-            'total' => $totalFiles,
-        ]);
+        $this->isUploading = false;
+        $this->processingFiles = [];
+        
+        // Dispatch event to hide upload status and show results
+        $this->dispatch('upload-complete');
     }
 
     /**
@@ -262,7 +243,8 @@ class Uploader extends Component
 
         $this->uploadedFiles = [];
         $this->files = [];
-        $this->clearProgress();
+        $this->processingFiles = [];
+        $this->isUploading = false;
 
         $this->dispatch('files-cleared', [
             'deleted' => $deletedCount,
@@ -329,79 +311,4 @@ class Uploader extends Component
         $this->extractMetadata = ! $this->extractMetadata;
     }
 
-    /**
-     * Update file upload progress
-     */
-    private function updateFileProgress(string $fileId, array $progressData): void
-    {
-        if (!isset($this->uploadProgress[$fileId])) {
-            return;
-        }
-
-        $stage = $progressData['stage'];
-        $data = $progressData['data'] ?? [];
-
-        switch ($stage) {
-            case 'upload_start':
-                $this->uploadProgress[$fileId]['stage'] = 'uploading';
-                $this->uploadProgress[$fileId]['progress'] = 0;
-                break;
-
-            case 'storage_start':
-                $this->uploadProgress[$fileId]['stage'] = 'storing';
-                $this->uploadProgress[$fileId]['provider'] = $data['provider'] ?? '';
-                break;
-
-            case 'storage_progress':
-                $this->uploadProgress[$fileId]['stage'] = 'storing';
-                $this->uploadProgress[$fileId]['progress'] = $data['progress'] ?? 0;
-                $this->uploadProgress[$fileId]['uploaded_bytes'] = $data['uploaded_bytes'] ?? 0;
-                $this->uploadProgress[$fileId]['total_bytes'] = $data['total_bytes'] ?? 0;
-                break;
-
-            case 'storage_complete':
-                $this->uploadProgress[$fileId]['stage'] = 'processing';
-                $this->uploadProgress[$fileId]['progress'] = 100;
-                break;
-
-            case 'upload_complete':
-                $this->uploadProgress[$fileId]['stage'] = 'complete';
-                $this->uploadProgress[$fileId]['progress'] = 100;
-                break;
-
-            case 'storage_error':
-                $this->uploadProgress[$fileId]['stage'] = 'error';
-                $this->uploadProgress[$fileId]['error'] = $data['error'] ?? 'Unknown error';
-                break;
-        }
-
-        // Dispatch updated progress to frontend
-        $this->dispatch('storage-progress-update', [
-            'fileId' => $fileId,
-            'progress' => $this->uploadProgress,
-        ]);
-    }
-
-    /**
-     * Get storage provider display name
-     */
-    private function getStorageProviderName(string $diskName): string
-    {
-        return match ($diskName) {
-            'spaces' => 'DigitalOcean Spaces',
-            'r2' => 'Cloudflare R2',
-            's3' => 'Amazon S3',
-            'local' => 'Local Storage',
-            default => ucfirst($diskName),
-        };
-    }
-
-    /**
-     * Clear upload progress
-     */
-    public function clearProgress(): void
-    {
-        $this->uploadProgress = [];
-        $this->uploadSessionId = Str::random(16);
-    }
 }

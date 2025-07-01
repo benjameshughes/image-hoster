@@ -60,327 +60,275 @@
         </div>
     </x-mary-card>
 
+    <!-- File Upload Area -->
     <x-mary-form wire:submit="save">
-        <div
-                x-data="{
-                uploading: false,
-                progress: 0,
-                uploadStarted: false,
-                currentFile: '',
-                totalFiles: 0,
-                processedFiles: 0,
-                storageProgress: {},
-                selectedDisk: '{{ $disk->value }}'
-            }"
-                x-on:livewire-upload-start="uploading = true; progress = 0"
-                x-on:livewire-upload-finish="uploading = false"
-                x-on:livewire-upload-cancel="uploading = false"
-                x-on:livewire-upload-error="uploading = false"
-                x-on:livewire-upload-progress="progress = $event.detail.progress"
-                {{-- Listen to our custom events from the Livewire component --}}
-                x-on:upload-started="uploadStarted = true; totalFiles = $event.detail.total; processedFiles = 0; storageProgress = {}"
-                x-on:upload-progress="processedFiles = $event.detail.current; currentFile = $event.detail.filename; progress = $event.detail.size || ''"
-                x-on:upload-completed="uploadStarted = false; currentFile = ''; storageProgress = {}"
-                x-on:storage-progress-update="storageProgress = $event.detail.progress"
-        >
+        <div x-data="{ 
+            uploading: false,
+            files: [],
+            showStatus: false 
+        }"
+        x-on:livewire-upload-start="uploading = true; showStatus = true"
+        x-on:livewire-upload-finish="uploading = false"
+        x-on:livewire-upload-cancel="uploading = false; showStatus = false"
+        x-on:livewire-upload-error="uploading = false; showStatus = false"
+        x-on:upload-complete.window="showStatus = false; files = []">
+        
             <x-mary-file
-                    wire:model="files"
-                    label="{{ __('Select Images') }}"
-                    multiple
-                    accept="image/*"
-                    hint="{{ __('Max') }} {{ $maxFileSizeMB }}{{ __('MB per file. Supported: JPEG, PNG, GIF, WebP, SVG, BMP, TIFF') }}"
-                    class="border-2 border-dashed border-gray-300 hover:border-primary transition-colors"
+                wire:model="files"
+                label="{{ __('Select Images') }}"
+                multiple
+                accept="image/*"
+                hint="{{ __('Max') }} {{ $maxFileSizeMB }}{{ __('MB per file. Supported: JPEG, PNG, GIF, WebP, SVG, BMP, TIFF') }}"
+                class="border-2 border-dashed border-gray-300 hover:border-primary transition-colors"
+                x-on:change="
+                    if ($event.target.files.length > 0) {
+                        showStatus = true;
+                        files = Array.from($event.target.files).map(file => ({
+                            name: file.name,
+                            size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                            status: 'uploading'
+                        }));
+                    }
+                "
             />
 
-            {{-- File Upload Progress (Livewire's built-in) --}}
-            <div x-show="uploading" class="mt-4">
+            <!-- Immediate Upload Status (JavaScript-driven) -->
+            <div x-show="showStatus && !$wire.isUploading" x-transition class="mt-6">
                 <x-mary-card>
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                            <x-mary-icon name="o-cloud-arrow-up" class="w-5 h-5 text-primary animate-bounce" />
-                            <span class="font-medium">{{ __('Uploading files...') }}</span>
-                        </div>
-                        <span class="text-sm font-mono" x-text="progress + '%'"></span>
-                    </div>
-                    <x-mary-progress :value="0" max="100" x-bind:value="progress" class="mb-2"/>
-                </x-mary-card>
-            </div>
-
-            {{-- Processing Progress (Our custom progress) --}}
-            <div x-show="uploadStarted" class="mt-4">
-                <x-mary-card>
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                            <x-mary-icon name="o-cog-6-tooth" class="w-5 h-5 text-primary animate-spin" />
-                            <span class="font-medium">{{ __('Processing files...') }}</span>
-                        </div>
-                        <span class="text-sm font-mono" x-text="processedFiles + ' / ' + totalFiles"></span>
-                    </div>
-                    <x-mary-progress :value="0" max="100" x-bind:value="totalFiles > 0 ? (processedFiles / totalFiles) * 100 : 0" class="mb-2"/>
-                    <div x-show="currentFile" class="flex items-center gap-2 text-xs text-gray-500">
-                        <x-mary-icon name="o-document" class="w-4 h-4" />
-                        <span>{{ __('Processing:') }}</span>
-                        <span x-text="currentFile" class="font-medium"></span>
-                        <span x-text="progress" class="text-gray-400"></span>
-                    </div>
-                </x-mary-card>
-            </div>
-
-            {{-- Storage Provider Progress (Detailed per-file progress) --}}
-            <div x-show="uploadStarted && Object.keys(storageProgress).length > 0" class="mt-4">
-                <x-mary-card>
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="flex items-center gap-2">
-                            <x-mary-icon name="o-cloud-arrow-up" class="w-5 h-5 text-primary" />
-                            <span class="font-medium">{{ __('Storage Progress') }}</span>
-                        </div>
-                        <div class="badge badge-outline badge-sm" x-text="
-                            selectedDisk === 'spaces' ? 'DigitalOcean Spaces' :
-                            selectedDisk === 'r2' ? 'Cloudflare R2' :
-                            selectedDisk === 's3' ? 'Amazon S3' :
-                            'Local Storage'
-                        "></div>
-                    </div>
-                    
-                    <div class="space-y-3">
-                        <template x-for="(progress, fileId) in storageProgress" :key="fileId">
-                            <div class="border border-base-300 dark:border-base-content/20 rounded-lg p-3">
-                                <!-- File Header -->
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-2 h-2 rounded-full" 
-                                             x-bind:class="{
-                                                 'bg-blue-500 animate-pulse': progress.stage === 'preparing',
-                                                 'bg-yellow-500 animate-pulse': progress.stage === 'uploading',
-                                                 'bg-orange-500 animate-pulse': progress.stage === 'storing',
-                                                 'bg-purple-500 animate-pulse': progress.stage === 'processing',
-                                                 'bg-green-500': progress.stage === 'complete',
-                                                 'bg-red-500': progress.stage === 'error'
-                                             }"></div>
-                                        <span class="text-sm font-medium" x-text="progress.filename"></span>
-                                        <span class="text-xs text-base-content/70" x-text="progress.size"></span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-mono" x-text="Math.round(progress.progress || 0) + '%'"></span>
-                                        <div class="text-xs capitalize px-2 py-1 rounded" 
-                                             x-bind:class="{
-                                                 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': progress.stage === 'preparing',
-                                                 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': progress.stage === 'uploading',
-                                                 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': progress.stage === 'storing',
-                                                 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': progress.stage === 'processing',
-                                                 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': progress.stage === 'complete',
-                                                 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': progress.stage === 'error'
-                                             }"
-                                             x-text="
-                                                 progress.stage === 'preparing' ? '{{ __('Preparing') }}' :
-                                                 progress.stage === 'uploading' ? '{{ __('Uploading') }}' :
-                                                 progress.stage === 'storing' ? '{{ __('Storing') }}' :
-                                                 progress.stage === 'processing' ? '{{ __('Processing') }}' :
-                                                 progress.stage === 'complete' ? '{{ __('Complete') }}' :
-                                                 progress.stage === 'error' ? '{{ __('Error') }}' :
-                                                 progress.stage
-                                             "></div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Progress Bar -->
-                                <div class="w-full bg-base-200 dark:bg-base-300 rounded-full h-2 mb-2">
-                                    <div class="h-2 rounded-full transition-all duration-300"
-                                         x-bind:class="{
-                                             'bg-blue-500': progress.stage === 'preparing',
-                                             'bg-yellow-500': progress.stage === 'uploading',
-                                             'bg-orange-500': progress.stage === 'storing',
-                                             'bg-purple-500': progress.stage === 'processing',
-                                             'bg-green-500': progress.stage === 'complete',
-                                             'bg-red-500': progress.stage === 'error'
-                                         }"
-                                         x-bind:style="'width: ' + Math.min(100, Math.max(0, progress.progress || 0)) + '%'"></div>
-                                </div>
-                                
-                                <!-- Storage Provider & Additional Info -->
-                                <div class="flex items-center justify-between text-xs text-base-content/70">
-                                    <div class="flex items-center gap-2">
-                                        <x-mary-icon name="o-server" class="w-3 h-3" />
-                                        <span x-text="progress.provider"></span>
-                                    </div>
-                                    <div x-show="progress.uploaded_bytes && progress.total_bytes" class="font-mono">
-                                        <span x-text="Math.round((progress.uploaded_bytes / 1024 / 1024) * 100) / 100 + ' MB'"></span>
-                                        <span class="mx-1">/</span>
-                                        <span x-text="Math.round((progress.total_bytes / 1024 / 1024) * 100) / 100 + ' MB'"></span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Error Message -->
-                                <div x-show="progress.stage === 'error' && progress.error" class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
-                                    <x-mary-icon name="o-exclamation-triangle" class="w-3 h-3 inline mr-1" />
-                                    <span x-text="progress.error"></span>
+                    <div class="text-center py-8">
+                        <div class="flex justify-center mb-4">
+                            <div class="relative">
+                                <div class="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <x-mary-icon name="o-cloud-arrow-up" class="w-6 h-6 text-primary" />
                                 </div>
                             </div>
-                        </template>
+                        </div>
+                        <h3 class="text-lg font-semibold text-base-content mb-2">{{ __('Files Uploading') }}</h3>
+                        <p class="text-base-content/70">{{ __('Uploading your images to') }} 
+                            <span class="font-medium">
+                                @if($disk->value === 'spaces')
+                                    {{ __('DigitalOcean Spaces') }}
+                                @elseif($disk->value === 'r2')
+                                    {{ __('Cloudflare R2') }}
+                                @elseif($disk->value === 's3')
+                                    {{ __('Amazon S3') }}
+                                @else
+                                    {{ __('Local Storage') }}
+                                @endif
+                            </span>
+                        </p>
+                        
+                        <!-- JavaScript-driven file list -->
+                        <div class="mt-6 max-w-md mx-auto">
+                            <template x-for="file in files" :key="file.name">
+                                <div class="flex items-center justify-between py-2 text-sm">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                                        <span class="text-blue-600">{{ __('Uploading') }}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-medium" x-text="file.name"></div>
+                                        <div class="text-xs text-base-content/70" x-text="file.size"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </x-mary-card>
             </div>
-
-            {{-- Display validation errors --}}
-            @error('files')
-            <x-mary-alert icon="o-exclamation-triangle" class="alert-error mt-4">
-                {{ $message }}
-            </x-mary-alert>
-            @enderror
-
-            {{-- Display any additional errors from our custom error handling --}}
-            @if($errors->has('files.*'))
-                <div class="mt-4">
-                    @foreach($errors->get('files.*') as $error)
-                        <x-mary-alert icon="o-exclamation-triangle" class="alert-error mb-2">
-                            {{ $error[0] }}
-                        </x-mary-alert>
-                    @endforeach
-                </div>
-            @endif
         </div>
 
-        {{-- Show upload button only when files are selected and not currently uploading --}}
-        @if($files && count($files) > 0)
-            <div class="mt-6">
-                <div class="flex items-center justify-between">
-                    <div class="text-sm text-gray-600">
-                        {{ count($files) }} {{ count($files) > 1 ? __('files') : __('file') }} {{ __('selected') }}
-                    </div>
-                    <div class="flex gap-2">
-                        <x-mary-button
-                                wire:click="$set('files', [])"
-                                class="btn-ghost btn-sm"
-                                icon="o-x-mark"
-                                x-bind:disabled="uploading || uploadStarted"
-                        >
-                            {{ __('Clear') }}
-                        </x-mary-button>
-                        
-                        <x-mary-button
-                                type="submit"
-                                class="btn-primary"
-                                icon="o-cloud-arrow-up"
-                                x-bind:disabled="uploading || uploadStarted"
-                                spinner="save"
-                        >
-                            <span x-show="!uploading && !uploadStarted">
-                                {{ __('Upload') }} {{ count($files) }} {{ count($files) > 1 ? __('files') : __('file') }}
-                            </span>
-                            <span x-show="uploading">{{ __('Uploading...') }}</span>
-                            <span x-show="uploadStarted && !uploading">{{ __('Processing...') }}</span>
-                        </x-mary-button>
-                    </div>
-                </div>
+        {{-- Display validation errors --}}
+        @error('files')
+        <x-mary-alert icon="o-exclamation-triangle" class="alert-error mt-4">
+            {{ $message }}
+        </x-mary-alert>
+        @enderror
+
+        {{-- Display any additional errors from our custom error handling --}}
+        @if($errors->has('files.*'))
+            <div class="mt-4">
+                @foreach($errors->get('files.*') as $error)
+                    <x-mary-alert icon="o-exclamation-triangle" class="alert-error mb-2">
+                        {{ $error[0] }}
+                    </x-mary-alert>
+                @endforeach
             </div>
         @endif
     </x-mary-form>
 
-    {{-- Display uploaded files --}}
+    {{-- Beautiful Upload Status --}}
+    @if($isUploading)
+        <x-mary-card class="mt-6">
+            <div class="text-center py-8">
+                <div class="flex justify-center mb-4">
+                    <div class="relative">
+                        <div class="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <x-mary-icon name="o-cloud-arrow-up" class="w-6 h-6 text-primary" />
+                        </div>
+                    </div>
+                </div>
+                <h3 class="text-lg font-semibold text-base-content mb-2">{{ __('Files Uploading') }}</h3>
+                <p class="text-base-content/70">{{ __('Uploading your images to') }} 
+                    <span class="font-medium">
+                        @if($disk->value === 'spaces')
+                            {{ __('DigitalOcean Spaces') }}
+                        @elseif($disk->value === 'r2')
+                            {{ __('Cloudflare R2') }}
+                        @elseif($disk->value === 's3')
+                            {{ __('Amazon S3') }}
+                        @else
+                            {{ __('Local Storage') }}
+                        @endif
+                    </span>
+                </p>
+                
+                {{-- Beautiful Processing List --}}
+                @if(count($processingFiles) > 0)
+                    <div class="mt-6 max-w-md mx-auto">
+                        @foreach($processingFiles as $file)
+                            <div class="flex items-center justify-between py-2 text-sm">
+                                <div class="flex items-center gap-3">
+                                    @if($file['status'] === 'uploading')
+                                        <div class="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                                        <span class="text-blue-600">{{ __('Uploading') }}</span>
+                                    @elseif($file['status'] === 'processing')
+                                        <div class="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                                        <span class="text-purple-600">{{ __('Processing') }}</span>
+                                    @elseif($file['status'] === 'complete')
+                                        <x-mary-icon name="o-check-circle" class="w-4 h-4 text-green-500" />
+                                        <span class="text-green-600">{{ __('Complete') }}</span>
+                                    @else
+                                        <x-mary-icon name="o-x-circle" class="w-4 h-4 text-red-500" />
+                                        <span class="text-red-600">{{ __('Error') }}</span>
+                                    @endif
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-medium">{{ $file['name'] }}</div>
+                                    <div class="text-xs text-base-content/70">{{ $file['size'] }}</div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </x-mary-card>
+    @endif
+
+    {{-- Clean Uploaded Files Display --}}
     @if($uploadedFiles && count($uploadedFiles) > 0)
-        <x-mary-card title="{{ __('Uploaded Files') }}" subtitle="{{ count($uploadedFiles) }} {{ count($uploadedFiles) > 1 ? __('files') : __('file') }} {{ __('uploaded successfully') }}" class="mt-8">
+        <x-mary-card class="mt-8">
+            <x-slot:title>
+                <div class="flex items-center gap-2">
+                    <x-mary-icon name="o-check-circle" class="w-5 h-5 text-success" />
+                    {{ __('Upload Complete') }}
+                </div>
+            </x-slot:title>
+            
+            <x-slot:subtitle>
+                {{ count($uploadedFiles) }} {{ count($uploadedFiles) > 1 ? __('files') : __('file') }} {{ __('uploaded successfully') }}
+            </x-slot:subtitle>
+
             <x-slot:menu>
                 <x-mary-button
-                        wire:click="clear"
-                        class="btn-outline btn-sm"
-                        icon="o-trash"
-                        wire:confirm="{{ __('Are you sure you want to clear all uploaded files?') }}"
+                    wire:click="clear"
+                    class="btn-outline btn-sm"
+                    icon="o-trash"
+                    wire:confirm="{{ __('Are you sure you want to clear all uploaded files?') }}"
                 >
                     {{ __('Clear All') }}
                 </x-mary-button>
             </x-slot:menu>
 
-            <!-- Upload Statistics -->
+            <!-- Compact Statistics -->
             @if($this->uploadStats)
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-                    <div class="text-center">
-                        <div class="text-lg font-bold text-blue-600">{{ $this->uploadStats['total_files'] }}</div>
-                        <div class="text-xs text-gray-500">{{ __('Files') }}</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-lg font-bold text-green-600">{{ $this->uploadStats['total_size_formatted'] }}</div>
-                        <div class="text-xs text-gray-500">{{ __('Total Size') }}</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-lg font-bold text-purple-600">{{ $this->formatFileSize($this->uploadStats['average_size']) }}</div>
-                        <div class="text-xs text-gray-500">{{ __('Avg Size') }}</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-lg font-bold text-orange-600">{{ count($this->uploadStats['file_types']) }}</div>
-                        <div class="text-xs text-gray-500">{{ __('Types') }}</div>
-                    </div>
-                </div>
+                <x-mary-stat
+                    title="{{ $this->uploadStats['total_files'] }}"
+                    description="{{ __('Files') }}"
+                    value="{{ $this->uploadStats['total_size_formatted'] }}"
+                    icon="o-cloud-arrow-up"
+                    color="text-success"
+                    class="mb-6"
+                />
             @endif
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Clean File List -->
+            <div class="space-y-3">
                 @foreach($uploadedFiles as $index => $file)
-                    <x-mary-card class="group hover:shadow-lg transition-all duration-200">
-                        {{-- File preview --}}
-                        <div class="relative mb-3">
+                    <div class="flex items-center gap-4 p-4 bg-base-100 dark:bg-base-200 rounded-lg border border-base-300 dark:border-base-content/20">
+                        <!-- File Preview -->
+                        <div class="flex-shrink-0">
                             @if(str_starts_with($file['mime'], 'image/'))
-                                <img
+                                <div class="relative w-16 h-16 rounded-lg overflow-hidden bg-base-200">
+                                    <img
                                         src="{{ $file['url'] }}"
                                         alt="{{ $file['name'] }}"
-                                        class="w-full h-32 object-cover rounded"
+                                        class="w-full h-full object-cover"
                                         loading="lazy"
-                                />
-                                
-                                <!-- Image overlay with dimensions -->
-                                @if(isset($file['width'], $file['height']))
-                                    <div class="absolute bottom-1 right-1 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                                        {{ $file['width'] }}×{{ $file['height'] }}
+                                    />
+                                    <div class="absolute inset-0 bg-green-500/10 flex items-center justify-center">
+                                        <x-mary-icon name="o-check" class="w-4 h-4 text-green-600" />
                                     </div>
-                                @endif
+                                </div>
                             @else
-                                <div class="w-full h-32 bg-gray-100 rounded flex items-center justify-center">
-                                    <x-mary-icon name="o-document" class="w-12 h-12 text-gray-400"/>
+                                <div class="w-16 h-16 rounded-lg bg-base-200 flex items-center justify-center">
+                                    <x-mary-icon name="o-document" class="w-8 h-8 text-base-content/40"/>
                                 </div>
                             @endif
-                            
-                            <!-- File type badge -->
-                            <div class="absolute top-1 right-1">
-                                <x-mary-badge value="{{ strtoupper(pathinfo($file['name'], PATHINFO_EXTENSION)) }}" class="badge-primary badge-sm" />
-                            </div>
                         </div>
 
-                        {{-- File info --}}
-                        <div class="space-y-1 mb-3">
-                            <p class="font-medium text-sm truncate" title="{{ $file['name'] }}">
-                                {{ $file['name'] }}
-                            </p>
-                            <div class="flex items-center justify-between text-xs text-gray-500">
+                        <!-- File Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="font-medium text-base-content truncate" title="{{ $file['name'] }}">
+                                    {{ $file['name'] }}
+                                </h3>
+                                <x-mary-badge 
+                                    value="{{ strtoupper(pathinfo($file['name'], PATHINFO_EXTENSION)) }}" 
+                                    class="badge-primary badge-sm"
+                                />
+                            </div>
+                            <div class="flex items-center gap-4 text-sm text-base-content/70">
                                 <span>{{ $file['formatted_size'] ?? $this->formatFileSize($file['size']) }}</span>
+                                @if(isset($file['width'], $file['height']))
+                                    <span>{{ $file['width'] }}×{{ $file['height'] }}</span>
+                                @endif
                                 @if(isset($file['uploaded_at']))
-                                    <span>{{ \Carbon\Carbon::parse($file['uploaded_at'])->format('M j, g:i A') }}</span>
+                                    <span>{{ \Carbon\Carbon::parse($file['uploaded_at'])->diffForHumans() }}</span>
                                 @endif
                             </div>
                         </div>
 
-                        {{-- Actions --}}
-                        <div class="flex gap-1">
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2">
                             @if(isset($file['url']))
                                 <x-mary-button 
                                     icon="o-eye" 
-                                    class="btn-xs btn-ghost flex-1"
+                                    class="btn-sm btn-ghost"
                                     link="{{ $file['url'] }}"
                                     external
-                                    tooltip="{{ __('View') }}" />
+                                    tooltip="{{ __('View') }}" 
+                                />
                                 
                                 <x-mary-button 
                                     icon="o-clipboard" 
-                                    class="btn-xs btn-ghost"
-                                    onclick="navigator.clipboard.writeText('{{ $file['url'] }}')"
-                                    tooltip="{{ __('Copy URL') }}" />
+                                    class="btn-sm btn-ghost"
+                                    onclick="navigator.clipboard.writeText('{{ $file['url'] }}'); $dispatch('mary-toast', {description: '{{ __('URL copied to clipboard') }}', type: 'success'})"
+                                    tooltip="{{ __('Copy URL') }}" 
+                                />
                             @endif
                             
                             <x-mary-button 
                                 icon="o-trash" 
-                                class="btn-xs btn-error"
+                                class="btn-sm btn-error btn-outline"
                                 wire:click="removeFile({{ $index }})"
                                 wire:confirm="{{ __('Remove this file?') }}"
-                                tooltip="{{ __('Delete') }}" />
+                                tooltip="{{ __('Delete') }}" 
+                            />
                         </div>
-                    </x-mary-card>
+                    </div>
                 @endforeach
             </div>
         </x-mary-card>
@@ -388,51 +336,4 @@
 
     {{-- Toast Messages --}}
     <x-mary-toast />
-    
-    {{-- Success/Error Messages --}}
-    <div
-            x-data="{ show: false, message: '', type: 'success', errors: [] }"
-            x-on:upload-completed="
-                if($event.detail.successful > 0) {
-                    $wire.dispatch('success', { message: $event.detail.successful + ' file(s) uploaded successfully!' });
-                }
-                if($event.detail.failed > 0) {
-                    show = true;
-                    message = $event.detail.failed + ' file(s) failed to upload';
-                    type = 'error';
-                    errors = $event.detail.errors || [];
-                    setTimeout(() => show = false, 10000)
-                }
-            "
-            x-on:file-removed="
-                if($event.detail.success) {
-                    $wire.dispatch('success', { message: 'File removed successfully' });
-                } else {
-                    $wire.dispatch('error', { message: 'Failed to remove file' });
-                }
-            "
-            x-on:files-cleared="
-                $wire.dispatch('success', { message: $event.detail.deleted + ' of ' + $event.detail.total + ' files cleared' });
-            "
-    >
-        <div x-show="show" x-transition class="mt-4">
-            <x-mary-alert
-                    x-bind:class="type === 'success' ? 'alert-success' : 'alert-error'"
-                    icon="o-exclamation-triangle"
-                    dismissible
-            >
-                <span x-text="message"></span>
-                <template x-if="errors.length > 0">
-                    <ul class="mt-2 list-disc list-inside text-sm">
-                        <template x-for="error in errors" :key="error.filename">
-                            <li>
-                                <strong x-text="error.filename"></strong>: 
-                                <span x-text="error.error"></span>
-                            </li>
-                        </template>
-                    </ul>
-                </template>
-            </x-mary-alert>
-        </div>
-    </div>
 </div>
