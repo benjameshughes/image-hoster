@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\UploaderService;
 use App\Services\ImageProcessingService;
+use App\Services\ProgressTrackingFilesystemManager;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -18,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
         });
         
         $this->app->singleton(ImageProcessingService::class);
+        $this->app->singleton(ProgressTrackingFilesystemManager::class);
     }
 
     /**

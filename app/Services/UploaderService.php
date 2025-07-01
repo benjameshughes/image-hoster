@@ -9,6 +9,7 @@ use App\Exceptions\FileSizeLimitException;
 use App\Exceptions\InvalidFileTypeException;
 use App\Exceptions\StorageException;
 use App\Models\Image;
+use App\Services\ProgressTrackingFilesystemManager;
 use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -726,7 +727,7 @@ class UploaderService
     }
 
     /**
-     * Store file with progress tracking
+     * Store file with real progress tracking
      */
     private function storeFileWithProgress(string $filename, string $diskName): ?string
     {
@@ -737,36 +738,19 @@ class UploaderService
         ]);
 
         try {
-            // Simulate progress during upload (in chunks for larger files)
             $fileSize = $this->file->getSize();
-            $chunkSize = 1024 * 1024; // 1MB chunks
-
-            if ($fileSize > $chunkSize) {
-                // For larger files, simulate chunked upload progress
-                $chunks = ceil($fileSize / $chunkSize);
-                for ($i = 1; $i <= $chunks; $i++) {
-                    $progress = ($i / $chunks) * 100;
-                    $this->reportProgress('storage_progress', [
-                        'disk' => $diskName,
-                        'provider' => $this->getStorageProviderName($diskName),
-                        'progress' => min(100, round($progress, 1)),
-                        'uploaded_bytes' => min($fileSize, $i * $chunkSize),
-                        'total_bytes' => $fileSize,
-                    ]);
-
-                    // Small delay to show progress (remove in production)
-                    if ($i < $chunks) {
-                        usleep(100000); // 0.1 seconds
-                    }
-                }
+            
+            // For S3-compatible storage (spaces, r2, s3), use real progress tracking
+            if (in_array($diskName, ['spaces', 'r2', 's3'])) {
+                return $this->storeWithRealProgress($filename, $diskName, $fileSize);
             }
 
-            // Actual file storage
+            // For local storage, use standard method
             $storedPath = $this->public
                 ? $this->file->storePubliclyAs($this->directory, $filename, $diskName)
                 : $this->file->storeAs($this->directory, $filename, $diskName);
 
-            // Report storage completion
+            // Report completion for local storage
             $this->reportProgress('storage_complete', [
                 'disk' => $diskName,
                 'provider' => $this->getStorageProviderName($diskName),
@@ -777,6 +761,77 @@ class UploaderService
 
         } catch (\Exception $e) {
             // Report storage error
+            $this->reportProgress('storage_error', [
+                'disk' => $diskName,
+                'provider' => $this->getStorageProviderName($diskName),
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Store file with real cloud storage progress tracking
+     */
+    private function storeWithRealProgress(string $filename, string $diskName, int $fileSize): ?string
+    {
+        try {
+            // Create progress-tracking filesystem manager
+            $progressManager = new ProgressTrackingFilesystemManager(app());
+            
+            // Set up progress callback
+            $progressCallback = function ($progressData) use ($diskName) {
+                if (isset($progressData['error'])) {
+                    $this->reportProgress('storage_error', [
+                        'disk' => $diskName,
+                        'provider' => $this->getStorageProviderName($diskName),
+                        'error' => $progressData['error'],
+                    ]);
+                } else {
+                    $this->reportProgress('storage_progress', [
+                        'disk' => $diskName,
+                        'provider' => $this->getStorageProviderName($diskName),
+                        'progress' => round($progressData['progress'] ?? 0, 1),
+                        'uploaded_bytes' => $progressData['uploaded'] ?? 0,
+                        'total_bytes' => $progressData['total'] ?? $fileSize,
+                    ]);
+                }
+            };
+
+            // Get progress-tracking disk instance
+            $disk = $progressManager->progressDisk($diskName, $progressCallback);
+            
+            // Build the full path
+            $fullPath = $this->directory ? $this->directory . '/' . $filename : $filename;
+            
+            // Store the file with real progress tracking
+            $fileContents = file_get_contents($this->file->getRealPath());
+            
+            // Use writeStream for larger files (>1MB) to enable multipart upload
+            if ($fileSize > 1024 * 1024) {
+                $stream = fopen($this->file->getRealPath(), 'r');
+                $disk->writeStream($fullPath, $stream, [
+                    'ACL' => $this->public ? 'public-read' : 'private',
+                    'ContentType' => $this->file->getMimeType(),
+                ]);
+                fclose($stream);
+            } else {
+                $disk->write($fullPath, $fileContents, [
+                    'ACL' => $this->public ? 'public-read' : 'private',
+                    'ContentType' => $this->file->getMimeType(),
+                ]);
+            }
+
+            // Report completion
+            $this->reportProgress('storage_complete', [
+                'disk' => $diskName,
+                'provider' => $this->getStorageProviderName($diskName),
+                'path' => $fullPath,
+            ]);
+
+            return $fullPath;
+
+        } catch (\Exception $e) {
             $this->reportProgress('storage_error', [
                 'disk' => $diskName,
                 'provider' => $this->getStorageProviderName($diskName),
