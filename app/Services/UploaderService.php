@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\AllowedImageType;
+use App\Enums\MediaType;
 use App\Enums\StorageDisk;
 use App\Exceptions\DuplicateFileException;
 use App\Exceptions\FileSizeLimitException;
 use App\Exceptions\InvalidFileTypeException;
 use App\Exceptions\StorageException;
 use App\Models\Image;
+use App\Models\Media;
 use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +42,7 @@ class UploaderService
 
     private bool $storeInDatabase = true;
 
-    private string $model = Image::class;
+    private string $model = Media::class;
 
     private array $allowedMimeTypes = [];
 
@@ -227,6 +229,16 @@ class UploaderService
     }
 
     /**
+     * Allow all MIME types (used for imports and special cases)
+     */
+    public function allowAllMimeTypes(): static
+    {
+        $this->allowedMimeTypes = [];
+
+        return $this;
+    }
+
+    /**
      * Set maximum file size in bytes
      */
     public function maxSize(int $bytes): static
@@ -348,7 +360,7 @@ class UploaderService
             // Check for duplicates if enabled
             if ($this->checkDuplicates) {
                 $hash = hash_file('sha256', $this->file->getRealPath());
-                $existing = Image::where('file_hash', $hash)->first();
+                $existing = Media::where('file_hash', $hash)->first();
                 if ($existing) {
                     throw new DuplicateFileException($hash);
                 }
@@ -415,8 +427,8 @@ class UploaderService
      */
     private function validateFile(): void
     {
-        // Check if file is valid
-        if (! $this->file->isValid()) {
+        // Check if file is valid (skip for test files like those from imports)
+        if (! $this->file->isValid() && ! $this->file->isTest()) {
             throw new InvalidFileTypeException('Invalid file', ['valid files']);
         }
 
@@ -509,6 +521,7 @@ class UploaderService
             'path' => $result['path'],
             'original_name' => $result['original_name'],
             'mime_type' => $result['mime_type'],
+            'media_type' => MediaType::fromMimeType($result['mime_type']),
             'image_type' => AllowedImageType::fromMimeType($result['mime_type']),
             'size' => $result['size'],
             'disk' => $result['disk'],
@@ -676,16 +689,18 @@ class UploaderService
     /**
      * Process image asynchronously (in a real app, this would be dispatched to a queue)
      */
-    private function processImageAsync(Image $image): void
+    private function processImageAsync(Media $media): void
     {
         try {
             // For now, process synchronously
             // In a production app, you'd dispatch this to a queue
-            $processingService = app(ImageProcessingService::class);
-            $processingService->processImage($image);
+            if (class_exists('App\Services\ImageProcessingService')) {
+                $processingService = app(ImageProcessingService::class);
+                $processingService->processImage($media);
+            }
         } catch (\Exception $e) {
-            \Log::error('Image processing failed during upload', [
-                'image_id' => $image->id,
+            \Log::error('Media processing failed during upload', [
+                'media_id' => $media->id,
                 'error' => $e->getMessage()
             ]);
         }

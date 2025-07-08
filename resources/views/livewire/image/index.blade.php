@@ -120,18 +120,18 @@
                                 <x-mary-button 
                                     icon="o-eye" 
                                     class="btn-sm btn-circle bg-white text-black"
-                                    link="{{ route('images.view', $image) }}" 
+                                    link="{{ route('images.view', $image) }}"
                                     tooltip="{{ __('View Details') }}" />
-                                
-                                <x-mary-button 
-                                    icon="o-arrow-down-tray" 
-                                    class="btn-sm btn-circle bg-white text-black"
-                                    wire:click="download({{ $image->id }})" 
-                                    tooltip="{{ __('Download') }}" />
+
+                                <x-mary-button
+                                        icon="o-clipboard"
+                                        class="btn-xs btn-ghost bg-white text-black"
+                                        onclick="navigator.clipboard.writeText('{{ $image->url }}')"
+                                        tooltip="{{ __('Copy Link') }}" />
                                 
                                 <x-mary-button 
                                     icon="o-trash" 
-                                    class="btn-sm btn-circle bg-red-500 text-white"
+                                    class="btn-sm btn-circle bg-red-500 text-white justify-end"
                                     wire:click="delete({{ $image->id }})" 
                                     wire:confirm="{{ __('Are you sure you want to delete this image?') }}"
                                     tooltip="{{ __('Delete') }}" />
@@ -164,11 +164,6 @@
                             <h3 class="font-medium text-sm truncate" title="{{ $image->original_name }}">
                                 {{ $image->original_name }}
                             </h3>
-                            <x-mary-button 
-                                icon="o-clipboard" 
-                                class="btn-xs btn-ghost"
-                                onclick="navigator.clipboard.writeText('{{ $image->url }}')"
-                                tooltip="{{ __('Copy URL') }}" />
                         </div>
                         
                         <div class="flex items-center justify-between text-xs text-gray-500">

@@ -20,7 +20,8 @@ $logout = function (Logout $logout) {
     <div class="flex-1">
         <x-mary-menu activate-by-route>
             <x-mary-menu-item title="{{ __('Dashboard') }}" icon="o-home" link="{{ route('dashboard') }}" />
-            <x-mary-menu-item title="{{ __('Image Library') }}" icon="o-photo" link="{{ route('images.index') }}" />
+            <x-mary-menu-item title="{{ __('Media Library') }}" icon="o-photo" link="{{ route('media.index') }}" />
+            <x-mary-menu-item title="{{ __('WordPress Import') }}" icon="o-arrow-down-tray" link="{{ route('import.dashboard') }}" />
             <x-mary-menu-separator />
             <x-mary-menu-sub title="{{ __('Account') }}" icon="o-user">
                 <x-mary-menu-item title="{{ __('Profile') }}" icon="o-user" link="{{ route('profile') }}" />

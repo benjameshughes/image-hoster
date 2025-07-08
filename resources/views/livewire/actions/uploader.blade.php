@@ -8,7 +8,6 @@
                     wire:model.live="disk" 
                     :options="[
                         ['id' => 'spaces', 'name' => 'DigitalOcean Spaces'],
-                        ['id' => 's3', 'name' => 'Amazon S3'],
                         ['id' => 'r2', 'name' => 'Cloudflare R2']
                     ]" 
                     option-value="id"
@@ -24,8 +23,6 @@
                                 {{ __('DigitalOcean Spaces') }}
                             @elseif($disk->value === 'r2')
                                 {{ __('Cloudflare R2') }}
-                            @elseif($disk->value === 's3')
-                                {{ __('Amazon S3') }}
                             @else
                                 {{ __('Local Storage') }}
                             @endif
@@ -79,7 +76,7 @@
                 multiple
                 accept="image/*"
                 hint="{{ __('Max') }} {{ $maxFileSizeMB }}{{ __('MB per file. Supported: JPEG, PNG, GIF, WebP, SVG, BMP, TIFF') }}"
-                class="border-2 border-dashed border-gray-300 hover:border-primary transition-colors"
+                class="border-gray-300 hover:border-primary transition-colors"
                 x-on:change="
                     if ($event.target.files.length > 0) {
                         showStatus = true;

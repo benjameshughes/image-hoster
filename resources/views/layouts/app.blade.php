@@ -42,7 +42,7 @@
             <main class="flex-1 p-6">
                 <!-- Page Heading -->
                 @if (isset($header))
-                    <header class="bg-white dark:bg-zinc-900 shadow mb-6 -m-6 mb-6 p-6">
+                    <header class="bg-white dark:bg-zinc-900 shadow -m-6 mb-6 p-6">
                         <h2 class="font-semibold text-xl text-gray-800 dark:text-white/80 leading-tight">
                             {{ $header }}
                         </h2>

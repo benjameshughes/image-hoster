@@ -54,4 +54,28 @@ class User extends Authenticatable
     {
         return $this->hasMany(Image::class);
     }
+
+    /**
+     * Get all media belonging to this user
+     */
+    public function media(): HasMany
+    {
+        return $this->hasMany(Media::class);
+    }
+
+    /**
+     * Get all imports belonging to this user
+     */
+    public function imports(): HasMany
+    {
+        return $this->hasMany(Import::class);
+    }
+
+    /**
+     * Get all import presets belonging to this user
+     */
+    public function importPresets(): HasMany
+    {
+        return $this->hasMany(ImportPreset::class);
+    }
 }

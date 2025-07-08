@@ -51,7 +51,7 @@ $sendVerification = function () {
 <x-mary-card>
     <x-mary-header 
         title="{{ __('Profile Information') }}" 
-        subtitle="{{ __(\"Update your account's profile information and email address.\") }}" />
+        subtitle="{{ __("Update your account's profile information and email address.") }}" />
 
     <x-mary-form wire:submit="updateProfileInformation">
         <x-mary-input 
