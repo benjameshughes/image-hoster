@@ -10,7 +10,9 @@ use App\Events\UploadProgressUpdated;
 use App\Exceptions\UploadException;
 use App\Models\Image;
 use App\Services\UploaderService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -70,6 +72,32 @@ class Uploader extends Component
      */
     public function save(): void
     {
+        // Rate limiting checks
+        $request = app(Request::class);
+        $request->setUserResolver(fn () => Auth::user());
+
+        // Check upload session rate limit
+        $sessionLimiter = RateLimiter::for('file-upload-session', fn () => $request);
+        if (! $sessionLimiter->attempt($request)) {
+            $this->dispatch('upload-error', [
+                'message' => 'Upload session limit reached. Please wait before starting another upload.',
+                'retry_after' => $sessionLimiter->availableIn($request),
+            ]);
+
+            return;
+        }
+
+        // Check file batch rate limit
+        $batchLimiter = RateLimiter::for('file-upload-batch', fn () => $request);
+        if (! $batchLimiter->attempt($request, count($this->files))) {
+            $this->dispatch('upload-error', [
+                'message' => 'File upload limit reached. Please wait before uploading more files.',
+                'retry_after' => $batchLimiter->availableIn($request),
+            ]);
+
+            return;
+        }
+
         $this->isUploading = true;
         $uploadedFiles = collect($this->uploadedFiles ?? []);
         $totalFiles = count($this->files);

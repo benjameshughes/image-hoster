@@ -16,8 +16,10 @@ Route::view('profile', 'profile')
     ->name('profile');
 
 Route::middleware(['auth'])->group(function () {
-    // Media Library
-    Route::get('media', App\Livewire\Media\Index::class)->name('media.index');
+    // Media Library (with upload rate limiting)
+    Route::get('media', App\Livewire\Media\Index::class)
+        ->middleware('throttle:livewire-actions')
+        ->name('media.index');
     Route::resource('media', MediaController::class)->except(['index']);
     Route::get('media/{media}/view', [MediaController::class, 'view'])->name('media.view');
     Route::get('media/{media}/download', [MediaController::class, 'download'])->name('media.download');
@@ -28,10 +30,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('images/{image}/view', [ImageController::class, 'view'])->name('images.view');
     Route::get('images/{image}/download', [ImageController::class, 'download'])->name('images.download');
     
-    // WordPress Import Routes
-    Route::get('import', App\Livewire\Import\Dashboard::class)->name('import.dashboard');
-    Route::get('import/{import}/progress', App\Livewire\Import\Progress::class)->name('import.progress');
-    Route::get('import/duplicates', App\Livewire\Import\DuplicateReview::class)->name('import.duplicates');
+    // WordPress Import Routes (with import-specific rate limiting)
+    Route::get('import', App\Livewire\Import\NewDashboard::class)
+        ->middleware('throttle:livewire-actions')
+        ->name('import.dashboard');
+    Route::get('import/{import}/progress', App\Livewire\Import\NewProgress::class)
+        ->middleware('throttle:livewire-actions')
+        ->name('import.progress');
+    Route::get('import/duplicates', App\Livewire\Import\DuplicateReview::class)
+        ->middleware('throttle:expensive-operations')
+        ->name('import.duplicates');
 });
 
 // Public media sharing routes (no authentication required)

@@ -75,6 +75,15 @@
         x-on:livewire-upload-cancel="uploading = false; showStatus = false"
         x-on:livewire-upload-error="uploading = false; showStatus = false"
         x-on:upload-complete.window="showStatus = false; files = []"
+        x-on:upload-error.window="
+            uploading = false; 
+            showStatus = false; 
+            $dispatch('mary-toast', {
+                description: $event.detail[0].message,
+                type: 'error',
+                timeout: 6000
+            });
+        "
         x-init="
             // Initialize WebSocket listeners with error handling
             try {
