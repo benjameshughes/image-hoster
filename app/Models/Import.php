@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ImportStatus;
+use App\Events\ImportStatusChanged;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -186,10 +187,13 @@ class Import extends Model
      */
     public function markAsStarted(): void
     {
+        $previousStatus = $this->status;
         $this->update([
             'status' => ImportStatus::RUNNING,
             'started_at' => now(),
         ]);
+        
+        ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::RUNNING, 'Import started');
     }
 
     /**
@@ -197,10 +201,13 @@ class Import extends Model
      */
     public function markAsCompleted(): void
     {
+        $previousStatus = $this->status;
         $this->update([
             'status' => ImportStatus::COMPLETED,
             'completed_at' => now(),
         ]);
+        
+        ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::COMPLETED, 'Import completed successfully');
     }
 
     /**
@@ -208,11 +215,14 @@ class Import extends Model
      */
     public function markAsFailed(string $errorMessage): void
     {
+        $previousStatus = $this->status;
         $this->update([
             'status' => ImportStatus::FAILED,
             'completed_at' => now(),
             'error_message' => $errorMessage,
         ]);
+        
+        ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::FAILED, $errorMessage);
     }
 
     /**
@@ -221,7 +231,9 @@ class Import extends Model
     public function pause(): void
     {
         if ($this->status === ImportStatus::RUNNING) {
+            $previousStatus = $this->status;
             $this->update(['status' => ImportStatus::PAUSED]);
+            ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::PAUSED, 'Import paused by user');
         }
     }
 
@@ -231,7 +243,9 @@ class Import extends Model
     public function resume(): void
     {
         if ($this->status === ImportStatus::PAUSED) {
+            $previousStatus = $this->status;
             $this->update(['status' => ImportStatus::RUNNING]);
+            ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::RUNNING, 'Import resumed by user');
         }
     }
 
@@ -241,10 +255,12 @@ class Import extends Model
     public function cancel(): void
     {
         if ($this->status->isActive()) {
+            $previousStatus = $this->status;
             $this->update([
                 'status' => ImportStatus::CANCELLED,
                 'completed_at' => now(),
             ]);
+            ImportStatusChanged::dispatch($this, $previousStatus, ImportStatus::CANCELLED, 'Import cancelled by user');
         }
     }
 
@@ -266,6 +282,11 @@ class Import extends Model
         }
         
         $this->update($updates);
+        
+        // Check if all items have been processed and mark as completed
+        if ($this->processed_items >= $this->total_items && $this->total_items > 0 && $this->status->isActive()) {
+            $this->markAsCompleted();
+        }
     }
 
     /**

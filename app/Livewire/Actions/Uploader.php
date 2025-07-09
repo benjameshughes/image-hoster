@@ -4,6 +4,9 @@ namespace App\Livewire\Actions;
 
 use App\Enums\AllowedImageType;
 use App\Enums\StorageDisk;
+use App\Events\UploadCompleted;
+use App\Events\UploadFileProcessed;
+use App\Events\UploadProgressUpdated;
 use App\Exceptions\UploadException;
 use App\Models\Image;
 use App\Services\UploaderService;
@@ -45,12 +48,15 @@ class Uploader extends Component
 
     public array $processingFiles = [];
 
+    public string $uploadSessionId = '';
+
     public function mount(): void
     {
         $this->allowedTypes = array_map(
             fn (AllowedImageType $type) => $type->value,
             AllowedImageType::cases()
         );
+        $this->uploadSessionId = Str::uuid()->toString();
     }
 
     public function updatedFiles(): void
@@ -69,6 +75,8 @@ class Uploader extends Component
         $totalFiles = count($this->files);
         $errors = [];
         $userId = Auth::id();
+        $successfulFiles = 0;
+        $failedFiles = 0;
 
         // Build processing files list
         $this->processingFiles = [];
@@ -76,14 +84,37 @@ class Uploader extends Component
             $this->processingFiles[] = [
                 'name' => $file->getClientOriginalName(),
                 'size' => $this->formatFileSize($file->getSize()),
-                'status' => 'uploading'
+                'status' => 'uploading',
             ];
         }
+
+        // Dispatch initial progress update
+        UploadProgressUpdated::dispatch(
+            $userId,
+            $this->uploadSessionId,
+            collect($this->processingFiles),
+            0,
+            $totalFiles
+        );
 
         foreach ($this->files as $index => $file) {
             try {
                 // Update to processing status
                 $this->processingFiles[$index]['status'] = 'processing';
+
+                // Dispatch progress update for current file
+                UploadProgressUpdated::dispatch(
+                    $userId,
+                    $this->uploadSessionId,
+                    collect($this->processingFiles),
+                    $index,
+                    $totalFiles,
+                    [
+                        'name' => $file->getClientOriginalName(),
+                        'size' => $this->formatFileSize($file->getSize()),
+                        'status' => 'processing',
+                    ]
+                );
 
                 $uploader = UploaderService::forUser($userId)
                     ->disk($this->disk)
@@ -99,8 +130,9 @@ class Uploader extends Component
 
                 // Mark as complete
                 $this->processingFiles[$index]['status'] = 'complete';
+                $successfulFiles++;
 
-                $uploadedFiles->push([
+                $fileData = [
                     'id' => $result['record']->id ?? null,
                     'name' => $file->getClientOriginalName(),
                     'filename' => $result['filename'],
@@ -112,24 +144,63 @@ class Uploader extends Component
                     'width' => $result['metadata']['width'] ?? null,
                     'height' => $result['metadata']['height'] ?? null,
                     'uploaded_at' => now()->toISOString(),
-                ]);
+                ];
+
+                $uploadedFiles->push($fileData);
+
+                // Dispatch file processed event
+                UploadFileProcessed::dispatch(
+                    $userId,
+                    $this->uploadSessionId,
+                    $index,
+                    $file->getClientOriginalName(),
+                    'complete',
+                    null,
+                    $fileData
+                );
 
             } catch (UploadException $e) {
                 $this->processingFiles[$index]['status'] = 'error';
                 $this->processingFiles[$index]['error'] = $e->getMessage();
+                $failedFiles++;
+
                 $errors[] = [
                     'filename' => $file->getClientOriginalName(),
                     'error' => $e->getMessage(),
                     'type' => 'upload_error',
                 ];
+
+                // Dispatch file processed event with error
+                UploadFileProcessed::dispatch(
+                    $userId,
+                    $this->uploadSessionId,
+                    $index,
+                    $file->getClientOriginalName(),
+                    'error',
+                    $e->getMessage()
+                );
+
             } catch (\Exception $e) {
                 $this->processingFiles[$index]['status'] = 'error';
                 $this->processingFiles[$index]['error'] = 'Upload failed';
+                $failedFiles++;
+
+                $errorMessage = 'Unexpected error: '.$e->getMessage();
                 $errors[] = [
                     'filename' => $file->getClientOriginalName(),
-                    'error' => 'Unexpected error: '.$e->getMessage(),
+                    'error' => $errorMessage,
                     'type' => 'system_error',
                 ];
+
+                // Dispatch file processed event with error
+                UploadFileProcessed::dispatch(
+                    $userId,
+                    $this->uploadSessionId,
+                    $index,
+                    $file->getClientOriginalName(),
+                    'error',
+                    $errorMessage
+                );
 
                 logger()->error('Upload failed with unexpected error', [
                     'file' => $file->getClientOriginalName(),
@@ -143,7 +214,17 @@ class Uploader extends Component
         $this->files = [];
         $this->isUploading = false;
         $this->processingFiles = [];
-        
+
+        // Dispatch upload completed event
+        UploadCompleted::dispatch(
+            $userId,
+            $this->uploadSessionId,
+            $totalFiles,
+            $successfulFiles,
+            $failedFiles,
+            $uploadedFiles->toArray()
+        );
+
         // Dispatch event to hide upload status and show results
         $this->dispatch('upload-complete');
     }
@@ -310,5 +391,4 @@ class Uploader extends Component
     {
         $this->extractMetadata = ! $this->extractMetadata;
     }
-
 }
