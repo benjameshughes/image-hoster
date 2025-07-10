@@ -78,4 +78,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(ImportPreset::class);
     }
+
+    /**
+     * Get all WordPress credentials belonging to this user
+     */
+    public function wordPressCredentials(): HasMany
+    {
+        return $this->hasMany(WordPressCredential::class);
+    }
+
+    /**
+     * Get the default WordPress credential for this user
+     */
+    public function defaultWordPressCredential(): ?WordPressCredential
+    {
+        return $this->wordPressCredentials()->default()->first();
+    }
 }

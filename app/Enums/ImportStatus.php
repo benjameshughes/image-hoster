@@ -52,8 +52,8 @@ enum ImportStatus: string
     public function isActive(): bool
     {
         return match ($this) {
-            self::PENDING, self::RUNNING, self::PAUSED => true,
-            self::COMPLETED, self::FAILED, self::CANCELLED => false,
+            self::PENDING, self::RUNNING => true,
+            self::PAUSED, self::COMPLETED, self::FAILED, self::CANCELLED => false,
         };
     }
 
@@ -66,6 +66,7 @@ enum ImportStatus: string
     {
         return $this === self::PAUSED;
     }
+
 
     public function canBeCancelled(): bool
     {
@@ -81,5 +82,35 @@ enum ImportStatus: string
             self::FAILED, self::CANCELLED => true,
             default => false,
         };
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this === self::COMPLETED;
+    }
+
+    public function isFailed(): bool
+    {
+        return $this === self::FAILED;
+    }
+
+    public function isPending(): bool
+    {
+        return $this === self::PENDING;
+    }
+
+    public function isRunning(): bool
+    {
+        return $this === self::RUNNING;
+    }
+
+    public function isPaused(): bool
+    {
+        return $this === self::PAUSED;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this === self::CANCELLED;
     }
 }

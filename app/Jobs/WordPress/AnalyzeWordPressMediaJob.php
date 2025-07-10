@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs\WordPress;
 
 use App\Enums\ImportStatus;
+use App\Events\ImportStatusChanged;
+use App\Events\ImportProgressUpdated;
 use App\Exceptions\WordPressApiException;
 use App\Models\Import;
 use App\Services\WordPress\WordPressApiService;
@@ -35,7 +37,11 @@ class AnalyzeWordPressMediaJob implements ShouldQueue
 
         try {
             // Mark import as running
+            $previousStatus = $this->import->status;
             $this->import->markAsStarted();
+            
+            // Dispatch status change event
+            ImportStatusChanged::dispatch($this->import, $previousStatus, $this->import->status, 'Import analysis started');
 
             // Create WordPress API service
             $config = $this->import->config;
@@ -64,7 +70,9 @@ class AnalyzeWordPressMediaJob implements ShouldQueue
             $this->import->update(['total_items' => $totalItems]);
 
             if ($totalItems === 0) {
+                $previousStatus = $this->import->status;
                 $this->import->markAsCompleted();
+                ImportStatusChanged::dispatch($this->import, $previousStatus, $this->import->status, 'No media items found to import');
                 Log::info('No media found in WordPress site', ['import_id' => $this->import->id]);
                 return;
             }
@@ -107,6 +115,13 @@ class AnalyzeWordPressMediaJob implements ShouldQueue
                 // Dispatch import jobs in batches
                 if ($itemsCreated % $batchSize === 0) {
                     $this->dispatchPendingImportJobs();
+                    
+                    // Send progress update
+                    ImportProgressUpdated::dispatch($this->import, collect([
+                        'phase' => 'analysis',
+                        'items_discovered' => $itemsCreated,
+                        'message' => "Discovered {$itemsCreated} items so far..."
+                    ]));
                     
                     Log::info('Created batch of import items', [
                         'import_id' => $this->import->id,

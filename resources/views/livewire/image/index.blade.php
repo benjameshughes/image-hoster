@@ -213,7 +213,7 @@
 @script
 <script>
     // Handle image modal events
-    $wire.on('show-image-modal', (event) => {
+    Livewire.on('show-image-modal', (event) => {
         const image = event.image;
         // You can implement a modal here or handle the image view as needed
         console.log('Show image modal:', image);
@@ -222,7 +222,7 @@
     // Handle copy to clipboard feedback
     document.addEventListener('click', function(e) {
         if (e.target.closest('[onclick*="clipboard"]')) {
-            $wire.dispatch('success', { message: 'URL copied to clipboard!' });
+            @this.dispatch('success', { message: 'URL copied to clipboard!' });
         }
     });
 </script>

@@ -48,6 +48,20 @@ enum AllowedImageType: string
         };
     }
 
+    public function getExtensions(): array
+    {
+        return match ($this) {
+            self::JPEG => ['jpeg', 'jpg'],
+            self::JPG => ['jpg', 'jpeg'],
+            self::PNG => ['png'],
+            self::GIF => ['gif'],
+            self::WEBP => ['webp'],
+            self::SVG => ['svg'],
+            self::BMP => ['bmp'],
+            self::TIFF => ['tiff', 'tif'],
+        };
+    }
+
     public static function getAllMimeTypes(): array
     {
         return array_map(fn ($case) => $case->mimeType(), self::cases());

@@ -64,5 +64,10 @@
             </aside>
         </div>
     </div>
+
+    {{-- Mary UI Toast Container --}}
+    <x-mary-toast />
+    
+    @stack('scripts')
 </body>
 </html>

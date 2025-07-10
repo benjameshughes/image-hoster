@@ -1,24 +1,24 @@
-<div class="bg-white rounded-lg shadow-lg p-6">
-    <h3 class="text-lg font-semibold mb-4">Image Compression</h3>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-700 p-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Image Compression</h3>
     
     {{-- Current Status --}}
     <div class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="font-medium text-gray-700 mb-2">Original Size</h4>
-                <p class="text-xl font-bold text-gray-900">{{ $this->getOriginalSizeFormatted() }}</p>
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Original Size</h4>
+                <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ $this->getOriginalSizeFormatted() }}</p>
             </div>
             
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="font-medium text-gray-700 mb-2">Current Size</h4>
-                <p class="text-xl font-bold text-gray-900">{{ $this->getCurrentCompressedSizeFormatted() }}</p>
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Current Size</h4>
+                <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ $this->getCurrentCompressedSizeFormatted() }}</p>
             </div>
         </div>
     </div>
 
     {{-- Quality Selection --}}
     <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Quality Level: {{ $selectedQuality }}%
         </label>
         <input 
@@ -27,7 +27,7 @@
             max="95" 
             step="5" 
             wire:model.live="selectedQuality"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            class="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer"
         >
         <div class="flex justify-between text-xs text-gray-500 mt-1">
             <span>50% (Smaller)</span>

@@ -6,7 +6,7 @@
             .then(() => {
                 this.copied = true;
                 setTimeout(() => this.copied = false, 2000);
-                $wire.dispatch('textCopied');
+                $dispatch('textCopied');
             })
             .catch(err => {
                 console.error('Failed to copy text: ', err);

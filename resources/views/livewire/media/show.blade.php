@@ -3,8 +3,8 @@
         {{-- Header --}}
         <div class="flex items-center justify-between mb-6">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">{{ $media->original_name }}</h1>
-                <p class="text-gray-600 mt-1">{{ $media->formattedSize }} • {{ $media->created_at->diffForHumans() }}</p>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $media->original_name }}</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">{{ $media->formattedSize }} • {{ $media->created_at->diffForHumans() }}</p>
             </div>
             
             <div class="flex items-center gap-2">
@@ -19,9 +19,9 @@
         </div>
 
         {{-- Media Display --}}
-        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-700 overflow-hidden">
             @if($media->media_type->value === 'image')
-                <div class="aspect-auto bg-gray-100 flex items-center justify-center">
+                <div class="aspect-auto bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                     <img 
                         src="{{ $media->url }}" 
                         alt="{{ $media->alt_text ?? $media->original_name }}"

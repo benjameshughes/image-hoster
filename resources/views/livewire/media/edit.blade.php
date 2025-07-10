@@ -1,5 +1,5 @@
-<div class="bg-white rounded-lg shadow-lg p-6">
-    <h3 class="text-lg font-semibold mb-4">Edit Media Details</h3>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-700 p-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Edit Media Details</h3>
     
     <form wire:submit="save" class="space-y-4">
         {{-- Alt Text --}}
@@ -24,7 +24,7 @@
 
         {{-- Tags --}}
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tags</label>
             
             {{-- Tag Input --}}
             <div class="flex gap-2 mb-3">
@@ -45,12 +45,12 @@
             @if(!empty($tags))
                 <div class="flex flex-wrap gap-2">
                     @foreach($tags as $index => $tag)
-                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 text-sm rounded">
                             {{ $tag }}
                             <button 
                                 type="button" 
                                 wire:click="removeTag({{ $index }})"
-                                class="text-blue-600 hover:text-blue-800"
+                                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
                             >
                                 <x-mary-icon name="o-x-mark" class="w-3 h-3" />
                             </button>
@@ -74,7 +74,7 @@
             <x-mary-button 
                 label="Cancel" 
                 class="btn-outline"
-                x-on:click="$wire.dispatch('close-edit-modal')"
+                wire:click="$dispatch('close-edit-modal')"
                 type="button"
             />
             <x-mary-button 

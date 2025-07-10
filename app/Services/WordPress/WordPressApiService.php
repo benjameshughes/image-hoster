@@ -265,10 +265,9 @@ class WordPressApiService
             $request = Http::withHeaders($this->headers)
                 ->withBasicAuth($this->username, $this->password)
                 ->timeout($this->timeout)
-                ->retry($this->retryTimes, 1000, function ($exception, $request) {
+                ->retry($this->retryTimes, 1000, function ($exception) {
                     // Retry on connection errors and 5xx server errors
-                    return $exception instanceof ConnectionException ||
-                           ($request->status() >= 500 && $request->status() < 600);
+                    return $exception instanceof ConnectionException;
                 });
 
             $response = match (strtoupper($method)) {

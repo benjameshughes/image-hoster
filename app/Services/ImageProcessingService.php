@@ -25,7 +25,7 @@ class ImageProcessingService
     /**
      * Process an uploaded image: create thumbnail and compressed version
      */
-    public function processImage(Image $image, ?int $compressionQuality = null): array
+    public function processImage(Media $image, ?int $compressionQuality = null): array
     {
         $results = [];
         
@@ -64,7 +64,7 @@ class ImageProcessingService
     /**
      * Create thumbnail version of the image
      */
-    private function createThumbnail(Image $image, ImageInterface $processedImage): ?array
+    private function createThumbnail(Media $image, ImageInterface $processedImage): ?array
     {
         try {
             $thumbnailSizes = $this->getThumbnailSizes();
@@ -120,7 +120,7 @@ class ImageProcessingService
     /**
      * Create compressed version of the image
      */
-    private function createCompressedVersion(Image $image, ImageInterface $processedImage): ?array
+    private function createCompressedVersion(Media $image, ImageInterface $processedImage): ?array
     {
         try {
             $compressed = clone $processedImage;
@@ -240,7 +240,7 @@ class ImageProcessingService
     /**
      * Clean up processed files for an image
      */
-    public function cleanupProcessedFiles(Image $image): void
+    public function cleanupProcessedFiles(Media $image): void
     {
         try {
             if ($image->thumbnail_path && Storage::disk($image->disk->value)->exists($image->thumbnail_path)) {

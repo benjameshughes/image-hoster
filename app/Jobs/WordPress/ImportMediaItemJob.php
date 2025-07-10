@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs\WordPress;
 
 use App\Enums\MediaType;
+use App\Events\ImportItemProcessed;
+use App\Events\ImportProgressUpdated;
 use App\Exceptions\WordPressApiException;
 use App\Models\ImportItem;
 use App\Models\Media;
@@ -96,7 +98,17 @@ class ImportMediaItemJob implements ShouldQueue
                         ]);
 
                         $this->importItem->markAsCompleted($existingMedia->id);
-                        $import->incrementProcessed(successful: true, duplicate: true);
+                        $import->incrementProcessed(true, true);
+                        
+                        // Dispatch real-time events for duplicate
+                        ImportItemProcessed::dispatch($this->importItem, true);
+                        ImportProgressUpdated::dispatch($import, collect([
+                            'latest_item' => [
+                                'title' => $this->importItem->title,
+                                'type' => 'duplicate',
+                                'message' => 'Duplicate file skipped'
+                            ]
+                        ]));
                         
                         // Clean up temp file
                         $apiService->cleanupTempFile($downloadResult['temp_path']);
@@ -153,7 +165,17 @@ class ImportMediaItemJob implements ShouldQueue
 
             // Mark item as completed
             $this->importItem->markAsCompleted($media->id);
-            $import->incrementProcessed(successful: true);
+            $import->incrementProcessed(true);
+            
+            // Dispatch real-time events
+            ImportItemProcessed::dispatch($this->importItem, true);
+            ImportProgressUpdated::dispatch($import, collect([
+                'latest_item' => [
+                    'title' => $this->importItem->title,
+                    'type' => $mediaType->value,
+                    'size' => $uploadResult['size'] ?? null,
+                ]
+            ]));
 
             // Dispatch duplicate detection job
             DetectDuplicatesJob::dispatch($media)
@@ -189,7 +211,17 @@ class ImportMediaItemJob implements ShouldQueue
     private function handleImportFailure(string $error): void
     {
         $this->importItem->markAsFailed($error);
-        $this->importItem->import->incrementProcessed(successful: false);
+        $this->importItem->import->incrementProcessed(false);
+        
+        // Dispatch real-time events for failure
+        ImportItemProcessed::dispatch($this->importItem, false, $error);
+        ImportProgressUpdated::dispatch($this->importItem->import, collect([
+            'latest_item' => [
+                'title' => $this->importItem->title,
+                'type' => 'failed',
+                'error' => $error
+            ]
+        ]));
 
         // If too many retries, mark as failed
         if ($this->attempts() >= $this->tries) {

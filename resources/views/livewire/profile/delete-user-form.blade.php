@@ -32,7 +32,7 @@ $deleteUser = function (Logout $logout) {
         label="{{ __('Delete Account') }}" 
         icon="o-trash" 
         class="btn-error"
-        @click="$wire.showDeleteModal = true" />
+        wire:click="$set('showDeleteModal', true)" />
 
     <x-mary-modal 
         wire:model="showDeleteModal" 
@@ -54,7 +54,7 @@ $deleteUser = function (Logout $logout) {
                 <x-mary-button 
                     label="{{ __('Cancel') }}" 
                     class="btn-ghost" 
-                    @click="$wire.showDeleteModal = false" />
+                    wire:click="$set('showDeleteModal', false)" />
                 
                 <x-mary-button 
                     label="{{ __('Delete Account') }}" 

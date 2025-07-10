@@ -68,7 +68,9 @@
             progressPercentage: 0,
             totalFiles: 0,
             successfulFiles: 0,
-            failedFiles: 0
+            failedFiles: 0,
+            cloudProgress: {},
+            currentPhase: 'starting'
         }"
         x-on:livewire-upload-start="uploading = true; showStatus = true"
         x-on:livewire-upload-finish="uploading = false"
@@ -113,11 +115,49 @@
                                 successfulFiles = e.successful_files;
                                 failedFiles = e.failed_files;
                                 progressPercentage = 100;
+                                currentPhase = 'complete';
                                 
                                 // Show completion message
                                 $dispatch('mary-toast', {
                                     description: 'Upload completed: ' + e.successful_files + ' successful, ' + e.failed_files + ' failed',
                                     type: e.failed_files > 0 ? 'warning' : 'success'
+                                });
+                            }
+                        })
+                        .listen('.upload.cloud.progress', (e) => {
+                            if (e.session_id === @js($uploadSessionId)) {
+                                console.log('Cloud upload progress:', e.filename, e.percentage.toFixed(1) + '%', e.formatted_speed);
+                                
+                                // Update cloud upload progress for specific file
+                                cloudProgress[e.filename] = {
+                                    percentage: e.percentage,
+                                    bytes_uploaded: e.bytes_uploaded,
+                                    total_bytes: e.total_bytes,
+                                    speed: e.speed,
+                                    eta: e.eta,
+                                    phase: e.phase,
+                                    formatted_uploaded: e.formatted_uploaded,
+                                    formatted_total: e.formatted_total,
+                                    formatted_speed: e.formatted_speed
+                                };
+                                
+                                // Update current phase
+                                currentPhase = 'uploading';
+                                
+                                // Update file status in realtime files
+                                realtimeFiles = realtimeFiles.map(file => {
+                                    if (file.name === e.filename) {
+                                        return {
+                                            ...file,
+                                            status: 'uploading',
+                                            phase: 'uploading',
+                                            upload_progress: e.percentage,
+                                            upload_speed: e.formatted_speed,
+                                            eta: e.eta,
+                                            bytes_info: e.formatted_uploaded + ' / ' + e.formatted_total
+                                        };
+                                    }
+                                    return file;
                                 });
                             }
                         });
@@ -127,6 +167,22 @@
             } catch (error) {
                 console.error('Failed to initialize WebSocket listeners:', error);
             }
+            
+            // Helper function to format ETA
+            this.formatETA = function(seconds) {
+                if (!seconds) return '';
+                if (seconds < 60) {
+                    return seconds + 's';
+                } else if (seconds < 3600) {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return minutes + 'm ' + remainingSeconds + 's';
+                } else {
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    return hours + 'h ' + minutes + 'm';
+                }
+            };
         ">
         
             <x-mary-file
@@ -232,29 +288,51 @@
                     </div>
                 </div>
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ __('Files Uploading') }}</h3>
-                <p class="text-gray-900 dark:text-gray-100/70">{{ __('Uploading your images to') }} 
-                    <span class="font-medium">
-                        @if($disk->value === 'spaces')
-                            {{ __('DigitalOcean Spaces') }}
-                        @elseif($disk->value === 'r2')
-                            {{ __('Cloudflare R2') }}
-                        @elseif($disk->value === 's3')
-                            {{ __('Amazon S3') }}
-                        @else
-                            {{ __('Local Storage') }}
-                        @endif
+                <p class="text-gray-900 dark:text-gray-100/70">
+                    <span x-show="currentPhase === 'starting'">{{ __('Preparing files for upload...') }}</span>
+                    <span x-show="currentPhase === 'uploading'">{{ __('Uploading to') }} 
+                        <span class="font-medium">
+                            @if($disk->value === 'spaces')
+                                {{ __('DigitalOcean Spaces') }}
+                            @elseif($disk->value === 'r2')
+                                {{ __('Cloudflare R2') }}
+                            @elseif($disk->value === 's3')
+                                {{ __('Amazon S3') }}
+                            @else
+                                {{ __('Local Storage') }}
+                            @endif
+                        </span>
                     </span>
+                    <span x-show="currentPhase === 'complete'">{{ __('Upload complete!') }}</span>
                 </p>
                 
                 <!-- Real-time Progress Bar -->
                 <div class="mt-4 w-full max-w-md mx-auto">
                     <div class="flex items-center justify-between text-sm mb-2">
-                        <span class="text-gray-900 dark:text-gray-100/70">{{ __('Progress') }}</span>
+                        <span class="text-gray-900 dark:text-gray-100/70">
+                            <span x-show="currentPhase === 'starting'">{{ __('Preparing...') }}</span>
+                            <span x-show="currentPhase === 'uploading'">{{ __('Uploading to cloud...') }}</span>
+                            <span x-show="currentPhase === 'complete'">{{ __('Complete') }}</span>
+                        </span>
                         <span class="font-medium" x-text="progressPercentage + '%'"></span>
                     </div>
                     <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div class="bg-primary h-2 rounded-full transition-all duration-300" :style="`width: ${progressPercentage}%`"></div>
                     </div>
+                </div>
+                
+                <!-- Overall Cloud Upload Speed (when available) -->
+                <div x-show="currentPhase === 'uploading' && Object.keys(cloudProgress).length > 0" class="mt-3 text-center">
+                    <template x-for="(progress, filename) in cloudProgress" :key="filename">
+                        <div x-show="progress.formatted_speed" class="text-sm text-gray-900 dark:text-gray-100/70 mb-1">
+                            <x-mary-icon name="o-arrow-up" class="w-4 h-4 inline text-blue-500" />
+                            <span x-text="progress.formatted_speed"></span>
+                            <span x-show="progress.eta" class="ml-2">
+                                <x-mary-icon name="o-clock" class="w-4 h-4 inline text-purple-500" />
+                                <span x-text="'ETA: ' + formatETA(progress.eta)"></span>
+                            </span>
+                        </div>
+                    </template>
                 </div>
                 
                 <!-- Current File Being Processed -->
@@ -263,32 +341,70 @@
                     <span class="font-medium" x-text="currentFile?.name"></span>
                 </div>
                 
-                {{-- Real-time Processing List --}}
-                <div class="mt-6 max-w-md mx-auto" x-show="realtimeFiles.length > 0">
+                {{-- Real-time Processing List with Cloud Progress --}}
+                <div class="mt-6 max-w-lg mx-auto" x-show="realtimeFiles.length > 0">
                     <template x-for="(file, index) in realtimeFiles" :key="file.name">
-                        <div class="flex items-center justify-between py-2 text-sm">
-                            <div class="flex items-center gap-3">
-                                <div x-show="file.status === 'uploading'" class="flex items-center gap-3">
-                                    <div class="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                                    <span class="text-blue-600 dark:text-blue-400">{{ __('Uploading') }}</span>
+                        <div class="p-4 mb-3 bg-base-100 dark:bg-base-200 rounded-lg border border-base-300 dark:border-base-content/20">
+                            <!-- File Header -->
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div x-show="file.status === 'uploading'" class="flex items-center gap-3">
+                                        <div class="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                                        <span class="text-blue-600 dark:text-blue-400 font-medium">{{ __('Uploading') }}</span>
+                                    </div>
+                                    <div x-show="file.status === 'processing'" class="flex items-center gap-3">
+                                        <div class="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
+                                        <span class="text-purple-600 dark:text-purple-400 font-medium">{{ __('Processing') }}</span>
+                                    </div>
+                                    <div x-show="file.status === 'complete'" class="flex items-center gap-3">
+                                        <x-mary-icon name="o-check-circle" class="w-4 h-4 text-green-500" />
+                                        <span class="text-green-600 dark:text-green-400 font-medium">{{ __('Complete') }}</span>
+                                    </div>
+                                    <div x-show="file.status === 'error'" class="flex items-center gap-3">
+                                        <x-mary-icon name="o-x-circle" class="w-4 h-4 text-red-500" />
+                                        <span class="text-red-600 dark:text-red-400 font-medium">{{ __('Error') }}</span>
+                                    </div>
                                 </div>
-                                <div x-show="file.status === 'processing'" class="flex items-center gap-3">
-                                    <div class="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-                                    <span class="text-purple-600 dark:text-purple-400">{{ __('Processing') }}</span>
-                                </div>
-                                <div x-show="file.status === 'complete'" class="flex items-center gap-3">
-                                    <x-mary-icon name="o-check-circle" class="w-4 h-4 text-green-500" />
-                                    <span class="text-green-600 dark:text-green-400">{{ __('Complete') }}</span>
-                                </div>
-                                <div x-show="file.status === 'error'" class="flex items-center gap-3">
-                                    <x-mary-icon name="o-x-circle" class="w-4 h-4 text-red-500" />
-                                    <span class="text-red-600 dark:text-red-400">{{ __('Error') }}</span>
+                                <div class="text-right">
+                                    <div class="font-medium text-sm" x-text="file.name"></div>
+                                    <div class="text-xs text-gray-900 dark:text-gray-100/70" x-text="file.size"></div>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <div class="font-medium" x-text="file.name"></div>
-                                <div class="text-xs text-gray-900 dark:text-gray-100/70" x-text="file.size"></div>
-                                <div x-show="file.error" class="text-xs text-red-600 dark:text-red-400" x-text="file.error"></div>
+                            
+                            <!-- Cloud Upload Progress Bar -->
+                            <div x-show="file.status === 'uploading' && file.upload_progress !== undefined" class="mb-3">
+                                <div class="flex items-center justify-between text-xs mb-1">
+                                    <span class="text-gray-900 dark:text-gray-100/70">{{ __('Progress') }}</span>
+                                    <span class="font-medium" x-text="Math.round(file.upload_progress || 0) + '%'"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                         :style="`width: ${file.upload_progress || 0}%`"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cloud Upload Details -->
+                            <div x-show="file.status === 'uploading' && (file.bytes_info || file.upload_speed || file.eta)" class="space-y-1">
+                                <div x-show="file.bytes_info" class="text-xs text-gray-900 dark:text-gray-100/70">
+                                    <span class="font-medium">{{ __('Transferred:') }}</span> 
+                                    <span x-text="file.bytes_info"></span>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs">
+                                    <div x-show="file.upload_speed" class="flex items-center gap-1">
+                                        <x-mary-icon name="o-arrow-up" class="w-3 h-3 text-blue-500" />
+                                        <span x-text="file.upload_speed"></span>
+                                    </div>
+                                    <div x-show="file.eta" class="flex items-center gap-1">
+                                        <x-mary-icon name="o-clock" class="w-3 h-3 text-purple-500" />
+                                        <span>{{ __('ETA:') }} <span x-text="formatETA(file.eta)"></span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Error Message -->
+                            <div x-show="file.error" class="text-xs text-red-600 dark:text-red-400 mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                                <x-mary-icon name="o-exclamation-triangle" class="w-3 h-3 inline mr-1" />
+                                <span x-text="file.error"></span>
                             </div>
                         </div>
                     </template>
